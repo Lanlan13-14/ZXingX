@@ -29,11 +29,13 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityOptionsCompat
+import androidx.lifecycle.lifecycleScope
 import com.king.camera.scan.CameraScan
 import com.king.logx.LogX
 import com.king.zxing.util.CodeUtils
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * 扫码示例
@@ -45,7 +47,6 @@ import java.util.concurrent.Executors
 class MainActivity : AppCompatActivity() {
 
     private var toast: Toast? = null
-    private val executor: ExecutorService = Executors.newSingleThreadExecutor()
     private lateinit var scanLauncher: ActivityResultLauncher<Intent>
     private lateinit var photoPickerLauncher: ActivityResultLauncher<String>
 
@@ -79,22 +80,18 @@ class MainActivity : AppCompatActivity() {
             LogX.w("uri is null.")
             return
         }
-        try {
-            val bitmap: Bitmap = MediaStore.Images.Media.getBitmap(contentResolver, uri)
-            asyncThread {
-                val result = CodeUtils.parseCode(bitmap)
-                runOnUiThread {
-                    Log.d(TAG, "result:$result")
-                    showToast(result)
+        lifecycleScope.launch {
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    val bitmap = MediaStore.Images.Media.getBitmap(contentResolver, uri)
+                    CodeUtils.parseCode(bitmap)
                 }
+                Log.d(TAG, "result:$result")
+                showToast(result)
+            } catch (e: Exception) {
+                LogX.w(e)
             }
-        } catch (e: Exception) {
-            LogX.w(e)
         }
-    }
-
-    private fun asyncThread(runnable: Runnable) {
-        executor.execute(runnable)
     }
 
     private fun startScan(cls: Class<*>) {
@@ -126,7 +123,5 @@ class MainActivity : AppCompatActivity() {
         private const val TAG = "MainActivity"
         const val KEY_TITLE = "key_title"
         const val KEY_IS_QR_CODE = "key_code"
-        const val REQUEST_CODE_SCAN = 0x01
-        const val REQUEST_CODE_PHOTO = 0x02
     }
 }

@@ -19,12 +19,15 @@ import com.king.zxing.analyze.MultiFormatAnalyzer
  */
 abstract class BarcodeCameraScanFragment : BaseCameraScanFragment<Result>() {
 
+    /**
+     * 扫码框视图；当 [getViewfinderViewId] 返回有效 ID 时会在 [initUI] 中自动绑定。
+     */
     protected var viewfinderView: ViewfinderView? = null
 
     override fun initUI() {
         val viewfinderViewId = getViewfinderViewId()
         if (viewfinderViewId != View.NO_ID && viewfinderViewId != 0) {
-            viewfinderView = getRootView().findViewById(viewfinderViewId)
+            viewfinderView = rootView.findViewById(viewfinderViewId)
         }
         super.initUI()
     }
@@ -33,10 +36,20 @@ abstract class BarcodeCameraScanFragment : BaseCameraScanFragment<Result>() {
         return MultiFormatAnalyzer()
     }
 
+    /**
+     * 布局 ID；通过覆写此方法可自定义布局。
+     *
+     * @return 默认返回 [R.layout.zxl_camera_scan]
+     */
     override fun getLayoutId(): Int {
         return R.layout.zxl_camera_scan
     }
 
+    /**
+     * [viewfinderView] 的 ID。
+     *
+     * @return 默认返回 [R.id.viewfinderView]；如果不需要扫码框可返回 [View.NO_ID]
+     */
     @IdRes
     open fun getViewfinderViewId(): Int {
         return R.id.viewfinderView

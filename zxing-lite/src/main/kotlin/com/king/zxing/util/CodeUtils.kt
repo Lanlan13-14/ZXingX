@@ -49,12 +49,28 @@ import java.util.HashMap
  * <p>
  * <a href="https://github.com/jenly1314">Follow me</a>
  */
-@Suppress("unused")
 object CodeUtils {
 
+    /** 默认解析图片目标宽度。 */
     const val DEFAULT_REQ_WIDTH = 480
+
+    /** 默认解析图片目标高度。 */
     const val DEFAULT_REQ_HEIGHT = 640
 
+    /**
+     * 生成二维码。
+     *
+     * 该方法对应 Java 版本中的多组重载：可选中间 Logo、Logo 比例、编码参数与二维码颜色。
+     * 在 Kotlin 中通过默认参数进行统一。
+     *
+     * @param content 二维码内容。
+     * @param size 二维码边长（像素）。
+     * @param logo 二维码中间的 Logo；为 `null` 时不添加。
+     * @param ratio Logo 占二维码宽度比例，建议不超过 `0.3`。
+     * @param hints 编码参数，默认使用高容错、`utf-8`、边距 `1`。
+     * @param codeColor 二维码前景色。
+     * @return 生成成功返回 [Bitmap]，失败返回 `null`。
+     */
     @JvmStatic
     @JvmOverloads
     fun createQRCode(
@@ -86,6 +102,14 @@ object CodeUtils {
         }
     }
 
+    /**
+     * 在二维码中间添加 Logo。
+     *
+     * @param src 原始二维码图。
+     * @param logo Logo 图。
+     * @param ratio Logo 占二维码宽度比例。
+     * @return 合成后的位图；当输入无效或处理失败时返回 `null`。
+     */
     private fun addLogo(src: Bitmap?, logo: Bitmap?, @FloatRange(from = 0.0, to = 1.0) ratio: Float): Bitmap? {
         if (src == null) {
             return null
@@ -122,34 +146,77 @@ object CodeUtils {
         }
     }
 
+    /**
+     * 解析二维码图片路径，返回文本内容。
+     *
+     * @param bitmapPath 需要解析的图片路径。
+     * @return 解析成功返回文本，失败返回 `null`。
+     */
     @JvmStatic
     fun parseQRCode(bitmapPath: String): String? {
         return parseQRCodeResult(bitmapPath)?.text
     }
 
+    /**
+     * 解析二维码图片路径，返回 [Result]。
+     *
+     * 当原图尺寸大于目标尺寸时会先压缩，再进行解析。
+     * 当 `reqWidth` 和 `reqHeight` 小于等于 0 时不压缩。
+     *
+     * @param bitmapPath 需要解析的图片路径。
+     * @param reqWidth 请求目标宽度。
+     * @param reqHeight 请求目标高度。
+     * @return 解析结果，失败返回 `null`。
+     */
     @JvmStatic
     @JvmOverloads
     fun parseQRCodeResult(bitmapPath: String, reqWidth: Int = DEFAULT_REQ_WIDTH, reqHeight: Int = DEFAULT_REQ_HEIGHT): Result? {
         return parseCodeResult(bitmapPath, reqWidth, reqHeight, DecodeFormatManager.QR_CODE_HINTS)
     }
 
+    /**
+     * 解析一维码/二维码图片路径，返回文本内容。
+     *
+     * @param bitmapPath 需要解析的图片路径。
+     * @param hints 解析编码类型配置。
+     * @return 解析成功返回文本，失败返回 `null`。
+     */
     @JvmStatic
     @JvmOverloads
     fun parseCode(bitmapPath: String, hints: Map<DecodeHintType, Any>? = DecodeFormatManager.ALL_HINTS): String? {
         return parseCodeResult(bitmapPath, hints = hints)?.text
     }
 
+    /**
+     * 解析二维码位图，返回文本内容。
+     */
     @JvmStatic
     fun parseQRCode(bitmap: Bitmap): String? {
         return parseCode(bitmap, DecodeFormatManager.QR_CODE_HINTS)
     }
 
+    /**
+     * 解析一维码/二维码位图，返回文本内容。
+     *
+     * @param bitmap 需要解析的位图。
+     * @param hints 解析编码类型配置。
+     * @return 解析成功返回文本，失败返回 `null`。
+     */
     @JvmStatic
     @JvmOverloads
     fun parseCode(bitmap: Bitmap, hints: Map<DecodeHintType, Any>? = DecodeFormatManager.ALL_HINTS): String? {
         return parseCodeResult(bitmap, hints)?.text
     }
 
+    /**
+     * 解析一维码/二维码图片路径，返回 [Result]。
+     *
+     * @param bitmapPath 需要解析的图片路径。
+     * @param reqWidth 请求目标宽度。
+     * @param reqHeight 请求目标高度。
+     * @param hints 解析编码类型配置。
+     * @return 解析结果，失败返回 `null`。
+     */
     @JvmStatic
     @JvmOverloads
     fun parseCodeResult(
@@ -162,12 +229,29 @@ object CodeUtils {
         return parseCodeResult(bitmap, hints)
     }
 
+    /**
+     * 解析一维码/二维码位图，返回 [Result]。
+     *
+     * @param bitmap 需要解析的位图。
+     * @param hints 解析编码类型配置。
+     * @return 解析结果，失败返回 `null`。
+     */
     @JvmStatic
     @JvmOverloads
     fun parseCodeResult(bitmap: Bitmap, hints: Map<DecodeHintType, Any>? = DecodeFormatManager.ALL_HINTS): Result? {
         return parseCodeResult(getRGBLuminanceSource(bitmap), hints)
     }
 
+    /**
+     * 解析一维码/二维码亮度源，返回 [Result]。
+     *
+     * 解析策略会按如下顺序尝试：
+     * 1) 原图；2) 反色图；3) 支持旋转时的逆时针旋转图。
+     *
+     * @param source 亮度源。
+     * @param hints 解析编码类型配置。
+     * @return 解析结果，失败返回 `null`。
+     */
     @JvmStatic
     @JvmOverloads
     fun parseCodeResult(source: LuminanceSource?, hints: Map<DecodeHintType, Any>? = DecodeFormatManager.ALL_HINTS): Result? {
@@ -192,6 +276,9 @@ object CodeUtils {
         return result
     }
 
+    /**
+     * 内部解析实现：优先 [HybridBinarizer]，失败后尝试 [GlobalHistogramBinarizer]。
+     */
     private fun decodeInternal(reader: MultiFormatReader, source: LuminanceSource): Result? {
         var result: Result? = null
         try {
@@ -207,6 +294,11 @@ object CodeUtils {
         return result
     }
 
+    /**
+     * 压缩图片到目标尺寸后再用于解析。
+     *
+     * 当 `reqWidth` 和 `reqHeight` 都大于 0 时按采样率压缩，否则按原图解码。
+     */
     private fun compressBitmap(path: String, reqWidth: Int, reqHeight: Int): Bitmap? {
         if (reqWidth > 0 && reqHeight > 0) {
             val newOpts = BitmapFactory.Options()
@@ -219,6 +311,9 @@ object CodeUtils {
         return BitmapFactory.decodeFile(path)
     }
 
+    /**
+     * 根据目标尺寸计算采样率。
+     */
     private fun getSampleSize(reqWidth: Int, reqHeight: Int, newOpts: BitmapFactory.Options): Int {
         val width = newOpts.outWidth.toFloat()
         val height = newOpts.outHeight.toFloat()
@@ -237,6 +332,9 @@ object CodeUtils {
         return size
     }
 
+    /**
+     * 将位图转换为 [RGBLuminanceSource]。
+     */
     private fun getRGBLuminanceSource(bitmap: Bitmap): RGBLuminanceSource {
         val width = bitmap.width
         val height = bitmap.height
@@ -245,6 +343,20 @@ object CodeUtils {
         return RGBLuminanceSource(width, height, pixels)
     }
 
+    /**
+     * 生成条形码（默认格式 [BarcodeFormat.CODE_128]）。
+     *
+     * 对应 Java 多重重载的 Kotlin 统一入口，可控制编码参数、是否显示文字、文字大小和颜色。
+     *
+     * @param content 条形码内容。
+     * @param desiredWidth 目标宽度。
+     * @param desiredHeight 目标高度。
+     * @param hints 编码参数。
+     * @param isShowText 是否在条形码下方显示文本。
+     * @param textSize 文本字号（当 `isShowText=true` 时生效）。
+     * @param codeColor 条形码颜色。
+     * @return 生成成功返回 [Bitmap]，失败返回 `null`。
+     */
     @JvmStatic
     @JvmOverloads
     fun createBarCode(
@@ -259,6 +371,19 @@ object CodeUtils {
         return createBarCode(content, BarcodeFormat.CODE_128, desiredWidth, desiredHeight, hints, isShowText, textSize, codeColor)
     }
 
+    /**
+     * 生成条形码。
+     *
+     * @param content 条形码内容。
+     * @param format 条形码格式。
+     * @param desiredWidth 目标宽度。
+     * @param desiredHeight 目标高度。
+     * @param hints 编码参数。
+     * @param isShowText 是否在条形码下方显示文本。
+     * @param textSize 文本字号（当 `isShowText=true` 时生效）。
+     * @param codeColor 条形码颜色。
+     * @return 生成成功返回 [Bitmap]，失败返回 `null`。
+     */
     @JvmStatic
     @JvmOverloads
     fun createBarCode(
@@ -301,6 +426,16 @@ object CodeUtils {
         }
     }
 
+    /**
+     * 在条形码下方添加文本信息。
+     *
+     * @param src 条形码位图。
+     * @param code 文本内容。
+     * @param textSize 文本字号。
+     * @param textColor 文本颜色。
+     * @param offset 文本与条码之间的垂直偏移。
+     * @return 叠加文本后的位图，失败返回 `null`。
+     */
     private fun addCode(src: Bitmap?, code: String?, textSize: Int, @ColorInt textColor: Int, offset: Int): Bitmap? {
         if (src == null) {
             return null
@@ -333,6 +468,13 @@ object CodeUtils {
         }
     }
 
+    /**
+     * 构建二维码默认编码参数。
+     *
+     * - 字符集：`utf-8`
+     * - 容错级别：`H`
+     * - 边距：`1`
+     */
     private fun buildQRCodeHints(): Map<EncodeHintType, Any> {
         return HashMap<EncodeHintType, Any>().apply {
             put(EncodeHintType.CHARACTER_SET, "utf-8")

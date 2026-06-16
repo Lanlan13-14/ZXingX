@@ -35,8 +35,7 @@ ZXingLite for Android 是ZXing的精简极速版，基于ZXing库优化扫码和
 2. 在Module的 **build.gradle** 中添加依赖项
 
     ```gradle
-    implementation 'com.github.jenly1314:zxing-lite:3.4.1'
-
+    implementation 'com.github.jenly1314:zxing-lite:3.5.0'
     ```
 
 ### 温馨提示
@@ -84,7 +83,7 @@ ZXingLite for Android 是ZXing的精简极速版，基于ZXing库优化扫码和
 
 内部提供了Analyzer对应的实现，都是为快速实现扫码识别而提供的分析器。
 
-内部提供的分析器有多个；一般情况下，你只需要知道最终实现的 [**MultiFormatAnalyzer**](zxing-lite/src/main/java/com/king/zxing/analyze/MultiFormatAnalyzer.java) 和 [**QRCodeAnalyzer**](zxing-lite/src/main/java/com/king/zxing/analyze/QRCodeAnalyzer.java) 即可：
+内部提供的分析器有多个；一般情况下，你只需要知道最终实现的 [**MultiFormatAnalyzer**](zxing-lite/src/main/kotlin/com/king/zxing/analyze/MultiFormatAnalyzer.kt) 和 [**QRCodeAnalyzer**](zxing-lite/src/main/kotlin/com/king/zxing/analyze/QRCodeAnalyzer.kt) 即可：
 
 **MultiFormatAnalyzer** 和 **QRCodeAnalyzer** 的主要区别，从名字大概就能看的出来；一个是可识别多种格式，一个是只识别二维码（具体需要支持识别哪些格式的条码，其实还要看提供的 **DecodeConfig** 是怎么配置的）。
 
@@ -104,44 +103,42 @@ DecodeConfig：解码格式管理器；主要将多种条码格式进行划分�
 
 CodeUtils的使用示例
 
-```Java
+```kotlin
 
     // 生成二维码
-    CodeUtils.createQRCode(content,600,logo);
+    CodeUtils.createQRCode(content,600,logo)
     // 生成条形码
-    CodeUtils.createBarCode(content, BarcodeFormat.CODE_128,800,200);
+    CodeUtils.createBarCode(content, BarcodeFormat.CODE_128,800,200)
     // 解析条形码/二维码
-    CodeUtils.parseCode(bitmap);
+    CodeUtils.parseCode(bitmap)
     // 解析二维码
-    CodeUtils.parseQRCode(bitmap);
+    CodeUtils.parseQRCode(bitmap)
 ```
 
 #### 关于BarcodeCameraScanActivity
 
 通过继承BarcodeCameraScanActivity实现扫二维码完整示例
 
-```java
-public class QRCodeScanActivity extends BarcodeCameraScanActivity {
+```kotlin
+class QRCodeScanActivity : BarcodeCameraScanActivity() {
 
-    @Override
-    public void initCameraScan(@NonNull CameraScan<Result> cameraScan) {
-        super.initCameraScan(cameraScan);
+    override fun initCameraScan(cameraScan: CameraScan<Result>) {
+        super.initCameraScan(cameraScan)
         // 根据需要设置CameraScan相关配置
-        cameraScan.setPlayBeep(true);
+        cameraScan.setPlayBeep(true)
     }
 
-    @Nullable
-    @Override
-    public Analyzer<Result> createAnalyzer() {
-        // 初始化解码配置
-        DecodeConfig decodeConfig = new DecodeConfig();
-        decodeConfig.setHints(DecodeFormatManager.QR_CODE_HINTS)//如果只有识别二维码的需求，这样设置效率会更高，不设置默认为DecodeFormatManager.DEFAULT_HINTS
-                .setFullAreaScan(false)//设置是否全区域识别，默认false
-                .setAreaRectRatio(0.8f)//设置识别区域比例，默认0.8，设置的比例最终会在预览区域裁剪基于此比例的一个矩形进行扫码识别
-                .setAreaRectVerticalOffset(0)//设置识别区域垂直方向偏移量，默认为0，为0表示居中，可以为负数
-                .setAreaRectHorizontalOffset(0);//设置识别区域水平方向偏移量，默认为0，为0表示居中，可以为负数
-        // BarcodeCameraScanActivity默认使用的MultiFormatAnalyzer，如果只识别二维码，这里可以改为使用QRCodeAnalyzer
-        return new MultiFormatAnalyzer(decodeConfig);
+    override fun createAnalyzer(): Analyzer<Result>? {
+        //初始化解码配置
+        val decodeConfig = DecodeConfig()
+        decodeConfig.setHints(DecodeFormatManager.QR_CODE_HINTS) // 如果只有识别二维码的需求，这样设置效率会更高，不设置默认为DecodeFormatManager.DEFAULT_HINTS
+            .setFullAreaScan(false) // 设置是否全区域识别，默认false
+            .setAreaRectRatio(0.8f) // 设置识别区域比例，默认0.8，设置的比例最终会在预览区域裁剪基于此比例的一个矩形进行扫码识别
+            .setAreaRectVerticalOffset(0) // 设置识别区域垂直方向偏移量，默认为0，为0表示居中，可以为负数
+            .setAreaRectHorizontalOffset(0) // 设置识别区域水平方向偏移量，默认为0，为0表示居中，可以为负数
+
+        // BarcodeCameraScanActivity默认使用的MultiFormatAnalyzer，这里也可以改为使用QRCodeAnalyzer
+        return MultiFormatAnalyzer(decodeConfig)
     }
 
     /**
@@ -149,20 +146,18 @@ public class QRCodeScanActivity extends BarcodeCameraScanActivity {
      *
      * @return 布局ID
      */
-    @Override
-    public int getLayoutId() {
-        return R.layout.activity_qrcode_scan;
+    override fun getLayoutId(): Int {
+        return R.layout.activity_qrcode_scan
     }
 
-    @Override
-    public void onScanResultCallback(@NonNull AnalyzeResult<Result> result) {
+    override fun onScanResultCallback(result: AnalyzeResult<Result>) {
         // 停止分析
-        getCameraScan().setAnalyzeImage(false);
+        cameraScan.setAnalyzeImage(false)
         // 返回结果
-        Intent intent = new Intent();
-        intent.putExtra(CameraScan.SCAN_RESULT, result.getResult().getText());
-        setResult(Activity.RESULT_OK, intent);
-        finish();
+        val intent = Intent()
+        intent.putExtra(CameraScan.SCAN_RESULT, result.result.text)
+        setResult(RESULT_OK, intent)
+        finish()
     }
 }
 
@@ -212,8 +207,9 @@ dependencies {
 
 ## 版本日志
 
-#### v3.4.1：2026-3-15
-- 更新CameraScan至v1.4.1
+#### v3.5.0：2026-6-16
+- 迁移：所有 Java 代码已转为 Kotlin 实现
+- 更新CameraScan至v1.5.0
 
 #### [查看更多版本日志](CHANGELOG.md)
 

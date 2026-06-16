@@ -21,10 +21,12 @@ import android.view.View
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import com.google.zxing.BarcodeFormat
 import com.king.zxing.util.CodeUtils
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * 生成条形码/二维码示例
@@ -38,7 +40,6 @@ class CodeActivity : AppCompatActivity() {
     private lateinit var tvTitle: TextView
     private lateinit var tvBarcodeFormat: TextView
     private lateinit var ivCode: ImageView
-    private val executor: ExecutorService = Executors.newSingleThreadExecutor()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -59,17 +60,21 @@ class CodeActivity : AppCompatActivity() {
     }
 
     private fun createQRCode(content: String) {
-        executor.execute {
-            val logo = BitmapFactory.decodeResource(resources, R.drawable.logo)
-            val bitmap = CodeUtils.createQRCode(content, 600, logo)
-            runOnUiThread { ivCode.setImageBitmap(bitmap) }
+        lifecycleScope.launch {
+            val bitmap = withContext(Dispatchers.IO) {
+                val logo = BitmapFactory.decodeResource(resources, R.drawable.logo)
+                CodeUtils.createQRCode(content, 600, logo)
+            }
+            ivCode.setImageBitmap(bitmap)
         }
     }
 
     private fun createBarCode(content: String) {
-        executor.execute {
-            val bitmap = CodeUtils.createBarCode(content, BarcodeFormat.CODE_128, 800, 200, null, true)
-            runOnUiThread { ivCode.setImageBitmap(bitmap) }
+        lifecycleScope.launch {
+            val bitmap = withContext(Dispatchers.IO) {
+                CodeUtils.createBarCode(content, BarcodeFormat.CODE_128, 800, 200, null, true)
+            }
+            ivCode.setImageBitmap(bitmap)
         }
     }
 
