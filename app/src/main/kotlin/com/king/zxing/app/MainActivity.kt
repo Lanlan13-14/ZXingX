@@ -25,7 +25,6 @@ import android.view.View
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityOptionsCompat
 import androidx.lifecycle.lifecycleScope
 import com.king.camera.scan.CameraScan
 import com.king.logx.LogX
@@ -71,13 +70,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun openScanResult(text: String?) {
-        val intent = ScanResultActivity.createIntent(this, text)
-        val options = ActivityOptionsCompat.makeCustomAnimation(
-            this,
-            R.anim.slide_in_right,
-            R.anim.slide_out_left
-        )
-        resultLauncher.launch(intent, options)
+        // Use the platform Activity transition so Android can render predictive back.
+        resultLauncher.launch(ScanResultActivity.createIntent(this, text))
     }
 
     private fun parsePhoto(uri: Uri?) {
@@ -101,27 +95,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startScan(cls: Class<*>) {
-        val optionsCompat = ActivityOptionsCompat.makeCustomAnimation(
-            this,
-            R.anim.slide_in_right,
-            R.anim.slide_out_left
-        )
-        val intent = Intent(this, cls)
-        scanLauncher.launch(intent, optionsCompat)
+        // Custom ActivityOptions transitions suppress the system predictive-back preview.
+        scanLauncher.launch(Intent(this, cls))
     }
 
     private fun startGenerateCodeActivity(isQRCode: Boolean, title: String) {
-        val intent = Intent(this, CodeActivity::class.java)
-        intent.putExtra(KEY_IS_QR_CODE, isQRCode)
-        intent.putExtra(KEY_TITLE, title)
-        startActivity(
-            intent,
-            ActivityOptionsCompat.makeCustomAnimation(
-                this,
-                R.anim.slide_in_right,
-                R.anim.slide_out_left
-            ).toBundle()
-        )
+        val intent = Intent(this, CodeActivity::class.java).apply {
+            putExtra(KEY_IS_QR_CODE, isQRCode)
+            putExtra(KEY_TITLE, title)
+        }
+        startActivity(intent)
     }
 
     @SuppressLint("NonConstantResourceId")

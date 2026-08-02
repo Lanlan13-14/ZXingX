@@ -8,7 +8,6 @@ import android.os.Bundle
 import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.Toast
-import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
 import com.google.android.material.button.MaterialButton
@@ -30,6 +29,8 @@ class ScanResultActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_scan_result)
 
+        // Default result for system back / predictive back. Do not intercept the gesture.
+        setResult(RESULT_CANCELED)
         resultText = intent.getStringExtra(EXTRA_RESULT).orEmpty()
 
         tvResult = findViewById(R.id.tvResult)
@@ -53,32 +54,16 @@ class ScanResultActivity : AppCompatActivity() {
         }
         btnOpen.isVisible = isUrl
 
-        btnClose.setOnClickListener { finishWithCancel() }
+        btnClose.setOnClickListener { onBackPressedDispatcher.onBackPressed() }
         btnConfirm.setOnClickListener { finishWithOk() }
         btnCopy.setOnClickListener { copyResult() }
         btnShare.setOnClickListener { shareResult() }
         btnOpen.setOnClickListener { openResult() }
-
-        onBackPressedDispatcher.addCallback(
-            this,
-            object : OnBackPressedCallback(true) {
-                override fun handleOnBackPressed() {
-                    finishWithCancel()
-                }
-            }
-        )
     }
 
     private fun finishWithOk() {
         setResult(RESULT_OK)
         finish()
-        overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
-    }
-
-    private fun finishWithCancel() {
-        setResult(RESULT_CANCELED)
-        finish()
-        overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
     }
 
     private fun copyResult() {

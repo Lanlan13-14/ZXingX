@@ -229,7 +229,7 @@ class CodeActivity : AppCompatActivity() {
 
     fun onClick(v: View) {
         when (v.id) {
-            R.id.ivLeft -> finish()
+            R.id.ivLeft -> onBackPressedDispatcher.onBackPressed()
         }
     }
 }
