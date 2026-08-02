@@ -15,7 +15,7 @@ checks = {
     'multi touch cancels swipe': 'MotionEvent.ACTION_POINTER_DOWN' in swipe and 'event.pointerCount > 1' in swipe,
     'swipe force reset': 'fun forceReset()' in swipe,
     'cancelled animations do not finish': 'onAnimationCancel' in swipe and 'animationGeneration' in swipe,
-    'camera multi-touch resets swipe': 'onMultiTouch = { swipeBack.forceReset() }' in activity,
+    'camera multi-touch resets swipe': 'onMultiTouch = { swipeBackController.forceReset() }' in activity,
     'serialized switch state': 'switchInFlight' in controller and 'pendingLensIndex' in controller,
     'zoom handled on camera thread': 'cameraHandler.post { handleZoomRequest(requestedZoom) }' in controller,
     'switch coalescing': 'if (switchInFlight)' in controller and 'pendingLensIndex = target' in controller,
@@ -28,7 +28,7 @@ checks = {
     'physical switch debounce': 'postDelayed(it, 140L)' in controller and 'lensSwitchDebounce' in controller,
     'stale reader callbacks ignored': 'if (source !== reader)' in controller,
     'camera roots opaque black': '@android:color/black' in layout and '@android:color/black' in qr_layout,
-    'lifecycle resets swipe surface': 'onWindowFocusChanged' in activity and 'swipeBack.forceReset()' in activity,
+    'lifecycle resets swipe surface': 'onWindowFocusChanged' in activity and 'swipeBackController.forceReset()' in activity,
 }
 
 failed = 0
