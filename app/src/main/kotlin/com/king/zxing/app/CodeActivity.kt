@@ -230,16 +230,6 @@ class CodeActivity : AppCompatActivity() {
         imm.hideSoftInputFromWindow(etContent.windowToken, 0)
     }
 
-    override fun onResume() {
-        super.onResume()
-        if (::swipeBack.isInitialized) swipeBack.forceReset()
-    }
-
-    override fun onWindowFocusChanged(hasFocus: Boolean) {
-        super.onWindowFocusChanged(hasFocus)
-        if (hasFocus && ::swipeBack.isInitialized) swipeBack.forceReset()
-    }
-
     fun onClick(v: View) {
         when (v.id) {
             R.id.ivLeft -> swipeBack.requestToolbarBack()

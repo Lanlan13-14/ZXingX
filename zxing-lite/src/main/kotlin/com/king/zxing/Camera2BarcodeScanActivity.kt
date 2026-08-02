@@ -101,14 +101,8 @@ abstract class Camera2BarcodeScanActivity : AppCompatActivity() {
     }
 
     override fun onPause() {
-        if (::swipeBackController.isInitialized) swipeBackController.forceReset()
         if (::cameraController.isInitialized) cameraController.stop()
         super.onPause()
-    }
-
-    override fun onWindowFocusChanged(hasFocus: Boolean) {
-        super.onWindowFocusChanged(hasFocus)
-        if (hasFocus && ::swipeBackController.isInitialized) swipeBackController.forceReset()
     }
 
     override fun onDestroy() {
