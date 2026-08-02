@@ -69,12 +69,14 @@ internal class Camera2ScanController(
     private var analyze = true
     private var released = false
     private var started = false
+    private var discovering = false
     private var generation = 0
     private var frozenPreview: ImageView? = null
     private var previewSize = Size(1280, 720)
     private var sensorOrientation = 90
     private var waitingForFirstFrame = false
     private var firstFrameCount = 0
+    private var lastAnalyzeNs = 0L
 
     fun start() {
         if (released || started) return
@@ -88,10 +90,13 @@ internal class Camera2ScanController(
             if (textureView.isAvailable) openSelectedLens()
             return
         }
+        if (discovering) return
+        discovering = true
         // Camera ID probing can touch dozens of IDs. Never perform it on the UI thread.
         cameraHandler.post {
             val discovered = Camera2LensDiscovery(manager).discoverBackLenses()
             textureView.post {
+                discovering = false
                 if (released || !started) return@post
                 lenses = discovered
                 lensIndex = lenses.indices.minByOrNull { abs(lenses[it].ratio - 1f) } ?: -1
@@ -117,6 +122,7 @@ internal class Camera2ScanController(
     fun stop() {
         if (!started) return
         started = false
+        discovering = false
         generation++
         closeSessionAndReader()
         camera?.close()
@@ -298,7 +304,12 @@ internal class Camera2ScanController(
 
     private fun onImageAvailable(source: ImageReader) {
         val image = source.acquireLatestImage() ?: return
-        if (!analyze || !decoding.compareAndSet(false, true)) { image.close(); return }
+        val now = System.nanoTime()
+        if (!analyze || now - lastAnalyzeNs < 80_000_000L || !decoding.compareAndSet(false, true)) {
+            image.close()
+            return
+        }
+        lastAnalyzeNs = now
         try {
             val width = image.width
             val height = image.height

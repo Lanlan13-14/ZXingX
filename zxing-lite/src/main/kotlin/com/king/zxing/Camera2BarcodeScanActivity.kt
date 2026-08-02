@@ -88,7 +88,10 @@ abstract class Camera2BarcodeScanActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (::cameraController.isInitialized) cameraController.start()
+        if (::cameraController.isInitialized) {
+            cameraController.setAnalyzeImage(true)
+            cameraController.start()
+        }
     }
 
     override fun onPause() {
