@@ -25,13 +25,14 @@
         app:layout_constraintTop_toBottomOf="@id/toolbar" />
 
     <androidx.core.widget.NestedScrollView
+        android:id="@+id/scroll"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:clipToPadding="false"
         android:fillViewport="true"
         android:overScrollMode="never"
         android:paddingStart="@dimen/space_20"
-        android:paddingTop="@dimen/space_20"
+        android:paddingTop="@dimen/space_16"
         android:paddingEnd="@dimen/space_20"
         android:paddingBottom="@dimen/space_32"
         app:layout_constraintBottom_toBottomOf="parent"
@@ -52,6 +53,44 @@
                 android:lineSpacingMultiplier="1.35"
                 android:text="@string/generate_hint"
                 android:textSize="@dimen/size_15sp" />
+
+            <TextView
+                android:id="@+id/tvContentLabel"
+                style="@style/TextAppearance.App.Caption"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/space_16"
+                android:text="@string/generate_content_label" />
+
+            <EditText
+                android:id="@+id/etContent"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/space_8"
+                android:background="@drawable/bg_input_field"
+                android:fontFamily="sans-serif"
+                android:gravity="top|start"
+                android:hint="@string/generate_input_hint"
+                android:importantForAutofill="no"
+                android:inputType="textMultiLine|textCapSentences"
+                android:minHeight="96dp"
+                android:padding="@dimen/space_12"
+                android:textColor="@color/colorTextPrimary"
+                android:textColorHint="@color/colorTextTertiary"
+                android:textSize="@dimen/size_16sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnGenerate"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="@dimen/space_12"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:text="@string/generate_action"
+                android:textAllCaps="false"
+                android:textSize="@dimen/size_16sp"
+                app:backgroundTint="@color/colorPrimary"
+                app:cornerRadius="@dimen/radius_md" />
 
             <LinearLayout
                 android:id="@+id/codeCard"
@@ -83,26 +122,31 @@
                     android:adjustViewBounds="true"
                     android:contentDescription="@null"
                     android:maxWidth="280dp"
-                    android:maxHeight="280dp" />
+                    android:maxHeight="280dp"
+                    android:minHeight="120dp" />
 
                 <TextView
-                    android:id="@+id/tvContentLabel"
+                    android:id="@+id/tvEncoded"
                     style="@style/TextAppearance.App.Caption"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/space_20"
-                    android:text="@string/generate_content_label" />
-
-                <TextView
-                    android:id="@+id/tvContent"
-                    style="@style/TextAppearance.App.Body"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/space_8"
-                    android:background="@drawable/bg_type_chip"
-                    android:padding="@dimen/space_12"
+                    android:layout_marginTop="@dimen/space_16"
+                    android:gravity="center"
                     android:textIsSelectable="true"
-                    tools:text="https://github.com/Lanlan13-14/ZXingX" />
+                    tools:text="编码内容预览" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnShareCode"
+                    style="@style/Widget.App.SecondaryButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="@dimen/space_16"
+                    android:enabled="false"
+                    android:text="@string/generate_share"
+                    app:icon="@drawable/ic_share"
+                    app:iconGravity="textStart"
+                    app:iconPadding="8dp"
+                    app:iconTint="@color/colorPrimary" />
             </LinearLayout>
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>

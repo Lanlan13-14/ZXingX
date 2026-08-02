@@ -16,9 +16,9 @@
     <string name="action_pick_photo">相册识别</string>
     <string name="action_pick_photo_desc">从图片中识别条码</string>
     <string name="action_generate_qr">生成二维码</string>
-    <string name="action_generate_qr_desc">演示：把文字编成可扫的二维码</string>
+    <string name="action_generate_qr_desc">输入文字或链接，生成可扫二维码</string>
     <string name="action_generate_barcode">生成条形码</string>
-    <string name="action_generate_barcode_desc">演示：把数字编成 CODE_128 条码</string>
+    <string name="action_generate_barcode_desc">输入内容，生成 CODE_128 条码</string>
 
     <string name="scan_result_title">扫描结果</string>
     <string name="scan_result_empty">未识别到有效内容</string>
@@ -34,8 +34,17 @@
 
     <string name="generate_format_qr">二维码 · QR_CODE</string>
     <string name="generate_format_code128">条形码 · CODE_128</string>
-    <string name="generate_hint">把一段文字或数字画成图，别人用相机扫一下就能读出内容。本页是演示：固定示例内容，中间为 ZXingX 标识。</string>
-    <string name="generate_content_label">编码内容</string>
+    <string name="generate_hint">在下方输入文字、链接或数字，点「生成」即可得到可扫描的图片。二维码中间为 ZXingX 标识。</string>
+    <string name="generate_content_label">要编码的内容</string>
+    <string name="generate_input_hint">输入内容</string>
+    <string name="generate_input_hint_qr">例如网址、微信号、纯文本…</string>
+    <string name="generate_input_hint_barcode">例如订单号、商品编码…</string>
+    <string name="generate_action">生成</string>
+    <string name="generate_share">分享图片</string>
+    <string name="generate_empty">请先输入内容</string>
+    <string name="generate_failed">生成失败，请检查内容格式</string>
+    <string name="generate_share_failed">分享失败</string>
+    <string name="generate_encoded_fmt">当前内容：%1$s</string>
     <string name="generate_sample_qr_content">https://github.com/Lanlan13-14/ZXingX</string>
     <string name="generate_sample_barcode_content">1234567890</string>
     <string name="back">返回</string>

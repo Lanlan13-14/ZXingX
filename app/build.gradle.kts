@@ -8,7 +8,8 @@ android {
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "com.king.zxing.app"
+        // Unique from upstream ZXingLite (com.king.zxing.app) so both can coexist.
+        applicationId = "com.lanlan13.zxingx"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
         versionCode = properties["VERSION_CODE"].toString().toInt()
