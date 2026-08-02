@@ -30,6 +30,11 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Candidate debug APK installs beside stable ZXingX for real-device tests.
+            applicationIdSuffix = ".camera2test"
+            versionNameSuffix = "-camera2-test"
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(

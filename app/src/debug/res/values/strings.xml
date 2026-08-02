@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ZXingX Camera2 Test</string>
+    <string name="quick_scan_tile_subtitle">ZXingX Camera2 测试版</string>
+</resources>
