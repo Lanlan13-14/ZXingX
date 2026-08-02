@@ -119,7 +119,9 @@ implementation 'com.github.jenly1314:zxing-lite:3.5.0'
 `versionCode = major * 10000 + minor * 100 + patch`。  
 Release 附件名：`ZXingX-vX.Y.Z.apk`。
 
-当前 release 使用 debug 签名，便于无密钥 CI 安装；上架请换成正式签名。
+Release 使用仓库内固定密钥 `app/keystore/zxingx-release.jks` 签名，保证 CI 多次发版可互相覆盖安装。
+
+若手机上已装的是旧版（debug 签名或其它密钥），更新会报「与已安装应用签名不同 / -7」，需**先卸载再安装一次**；之后用同一密钥打的包即可正常更新。
 
 ## 校验脚本
 

@@ -17,8 +17,17 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    // Open-source / CI: ship a signed release APK without a private keystore.
-    // Production apps should replace this with a real signingConfig.
+    signingConfigs {
+        // Stable open-source release keystore so CI APKs can update each other.
+        // Password is public on purpose (demo app, not Play Store production).
+        create("release") {
+            storeFile = file("keystore/zxingx-release.jks")
+            storePassword = "zxingx-open-source"
+            keyAlias = "zxingx"
+            keyPassword = "zxingx-open-source"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -26,7 +35,7 @@ android {
                 getDefaultProguardFile("proguard-android.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
