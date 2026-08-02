@@ -64,6 +64,16 @@ class ScanResultActivity : AppCompatActivity() {
         btnOpen.setOnClickListener { openResult() }
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (::swipeBack.isInitialized) swipeBack.forceReset()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus && ::swipeBack.isInitialized) swipeBack.forceReset()
+    }
+
     private fun finishWithOk() {
         setResult(RESULT_OK)
         swipeBack.requestBack()

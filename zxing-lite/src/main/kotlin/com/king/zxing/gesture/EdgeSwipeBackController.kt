@@ -14,7 +14,6 @@ import android.view.ViewGroup
 import android.view.ViewOutlineProvider
 import android.widget.FrameLayout
 import android.view.animation.PathInterpolator
-import androidx.activity.BackEventCompat
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.doOnLayout
@@ -45,6 +44,7 @@ class EdgeSwipeBackController private constructor(
     private var downY = 0f
     private var velocityTracker: VelocityTracker? = null
     private var animator: ValueAnimator? = null
+    private var animationGeneration = 0
     private var cornerRadius = 0f
     private var finishing = false
 
@@ -55,21 +55,9 @@ class EdgeSwipeBackController private constructor(
     }
 
     private val backCallback = object : OnBackPressedCallback(true) {
-        override fun handleOnBackStarted(backEvent: BackEventCompat) {
-            direction = if (backEvent.swipeEdge == BackEventCompat.EDGE_RIGHT) -1f else 1f
-            begin()
-        }
-
-        override fun handleOnBackProgressed(backEvent: BackEventCompat) {
-            direction = if (backEvent.swipeEdge == BackEventCompat.EDGE_RIGHT) -1f else 1f
-            apply(backEvent.progress.coerceIn(0f, 1f))
-        }
-
-        override fun handleOnBackCancelled() {
-            cancel()
-        }
-
         override fun handleOnBackPressed() {
+            // Hardware/system committed back gets an app-owned completion animation.
+            direction = 1f
             commit()
         }
     }
@@ -79,9 +67,18 @@ class EdgeSwipeBackController private constructor(
         surface.outlineProvider = outlineProvider
         surface.doOnLayout {
             animateEnter()
-            if (Build.VERSION.SDK_INT < 34) installLegacyEdgeGesture()
+            installLegacyEdgeGesture()
         }
         return this
+    }
+
+    /** Restore from any interrupted gesture/lifecycle transition immediately. */
+    fun forceReset() {
+        if (finishing) return
+        animationGeneration++
+        animator?.cancel()
+        animator = null
+        reset()
     }
 
     /** Commit an edge/predictive gesture using the rounded-card trajectory. */
@@ -99,7 +96,9 @@ class EdgeSwipeBackController private constructor(
         cornerRadius = 0f
         surface.invalidateOutline()
         val startX = surface.translationX
-        ValueAnimator.ofFloat(0f, 1f).apply {
+        val generation = ++animationGeneration
+        var cancelled = false
+        animator = ValueAnimator.ofFloat(0f, 1f).apply {
             duration = 260L
             interpolator = PathInterpolator(0.32f, 0.72f, 0f, 1f)
             addUpdateListener {
@@ -111,8 +110,11 @@ class EdgeSwipeBackController private constructor(
                 surface.alpha = 1f
             }
             addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationCancel(animation: android.animation.Animator) {
+                    cancelled = true
+                }
                 override fun onAnimationEnd(animation: android.animation.Animator) {
-                    finishImmediately()
+                    if (!cancelled && generation == animationGeneration) finishImmediately()
                 }
             })
             start()
@@ -178,12 +180,18 @@ class EdgeSwipeBackController private constructor(
     private fun animateTo(target: Float, finishAtEnd: Boolean) {
         animator?.cancel()
         val start = progress
+        val generation = ++animationGeneration
+        var cancelled = false
         animator = ValueAnimator.ofFloat(start, target).apply {
             duration = (140L + 110L * abs(target - start)).toLong()
             interpolator = settle
             addUpdateListener { apply(it.animatedValue as Float) }
             addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationCancel(animation: android.animation.Animator) {
+                    cancelled = true
+                }
                 override fun onAnimationEnd(animation: android.animation.Animator) {
+                    if (cancelled || generation != animationGeneration) return
                     if (finishAtEnd) animateGestureExit() else reset()
                 }
             })
@@ -202,6 +210,8 @@ class EdgeSwipeBackController private constructor(
         val startX = surface.translationX
         val startScale = surface.scaleX
         val startRadius = cornerRadius
+        val generation = ++animationGeneration
+        var cancelled = false
         animator = ValueAnimator.ofFloat(0f, 1f).apply {
             duration = 240L
             interpolator = PathInterpolator(0.32f, 0.72f, 0f, 1f)
@@ -214,8 +224,11 @@ class EdgeSwipeBackController private constructor(
                 surface.invalidateOutline()
             }
             addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationCancel(animation: android.animation.Animator) {
+                    cancelled = true
+                }
                 override fun onAnimationEnd(animation: android.animation.Animator) {
-                    finishImmediately()
+                    if (!cancelled && generation == animationGeneration) finishImmediately()
                 }
             })
             start()
@@ -279,8 +292,21 @@ class EdgeSwipeBackController private constructor(
                     true
                 }
 
+                MotionEvent.ACTION_POINTER_DOWN -> {
+                    if (tracking) {
+                        cancelLegacyTracking()
+                        animateTo(0f, false)
+                    }
+                    false
+                }
+
                 MotionEvent.ACTION_MOVE -> {
                     if (!tracking) return@setOnTouchListener false
+                    if (event.pointerCount > 1) {
+                        cancelLegacyTracking()
+                        animateTo(0f, false)
+                        return@setOnTouchListener false
+                    }
                     velocityTracker?.addMovement(event)
                     val dx = (event.x - downX) * direction
                     val dy = abs(event.y - downY)

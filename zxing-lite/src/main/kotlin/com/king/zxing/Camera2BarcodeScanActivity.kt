@@ -61,7 +61,12 @@ abstract class Camera2BarcodeScanActivity : AppCompatActivity() {
 
     private fun startCamera() {
         if (::cameraController.isInitialized) return
-        cameraController = Camera2ScanController(this, previewView, createAnalyzer()) { result, width, height ->
+        cameraController = Camera2ScanController(
+            context = this,
+            textureView = previewView,
+            analyzer = createAnalyzer(),
+            onMultiTouch = { swipeBack.forceReset() }
+        ) { result, width, height ->
             beep?.release()
             beep = android.media.ToneGenerator(android.media.AudioManager.STREAM_MUSIC, 70).also {
                 it.startTone(android.media.ToneGenerator.TONE_PROP_BEEP, 90)
@@ -88,6 +93,7 @@ abstract class Camera2BarcodeScanActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (::swipeBack.isInitialized) swipeBack.forceReset()
         if (::cameraController.isInitialized) {
             cameraController.setAnalyzeImage(true)
             cameraController.start()
@@ -95,8 +101,14 @@ abstract class Camera2BarcodeScanActivity : AppCompatActivity() {
     }
 
     override fun onPause() {
+        if (::swipeBack.isInitialized) swipeBack.forceReset()
         if (::cameraController.isInitialized) cameraController.stop()
         super.onPause()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus && ::swipeBack.isInitialized) swipeBack.forceReset()
     }
 
     override fun onDestroy() {

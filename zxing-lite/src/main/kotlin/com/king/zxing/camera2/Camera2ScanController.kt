@@ -32,7 +32,7 @@ import android.widget.ImageView
 import com.google.zxing.Result
 import com.king.logx.LogX
 import com.king.zxing.analyze.ImageAnalyzer
-import java.util.concurrent.Executors
+import java.util.concurrent.Executor
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.abs
 import kotlin.math.max
@@ -44,6 +44,7 @@ internal class Camera2ScanController(
     private val context: Context,
     private val textureView: TextureView,
     private val analyzer: ImageAnalyzer,
+    private val onMultiTouch: () -> Unit = {},
     private val onResult: (Result, Int, Int) -> Unit
 ) {
     private val manager = context.getSystemService(CameraManager::class.java)
@@ -51,15 +52,16 @@ internal class Camera2ScanController(
     private val cameraHandler = Handler(cameraThread.looper)
     private val decodeThread = HandlerThread("ZXingX-Decode").apply { start() }
     private val decodeHandler = Handler(decodeThread.looper)
-    private val sessionExecutor = Executors.newSingleThreadExecutor()
+    private val sessionExecutor = Executor { command -> cameraHandler.post(command) }
     private val decoding = AtomicBoolean(false)
     private val scaleDetector = ScaleGestureDetector(context, ScaleListener())
 
     private var lenses: List<Camera2LensDiscovery.Lens> = emptyList()
-    private var lensIndex = -1
+    @Volatile private var lensIndex = -1
     private var bindingIndex = 0
-    private var virtualZoom = 1f
+    @Volatile private var virtualZoom = 1f
     private var currentBinding: Camera2LensDiscovery.Binding? = null
+    private var attemptBinding: Camera2LensDiscovery.Binding? = null
     private var attemptLensIndex = -1
     private var attemptBindingIndex = -1
     private var lastWorkingLensIndex = -1
@@ -67,32 +69,42 @@ internal class Camera2ScanController(
     private val failedBindingKeys = mutableSetOf<String>()
     private var camera: CameraDevice? = null
     private var session: CameraCaptureSession? = null
-    private var reader: ImageReader? = null
+    @Volatile private var reader: ImageReader? = null
     private var previewSurface: Surface? = null
+    @Volatile private var activeSurfaceTexture: SurfaceTexture? = null
     private var requestBuilder: CaptureRequest.Builder? = null
-    private var torch = false
-    private var analyze = true
-    private var released = false
-    private var started = false
-    private var discovering = false
+    @Volatile private var torch = false
+    @Volatile private var analyze = true
+    @Volatile private var released = false
+    @Volatile private var started = false
+    @Volatile private var discovering = false
     private var generation = 0
     private var frozenPreview: ImageView? = null
     private var previewSize = Size(1280, 720)
     private var sensorOrientation = 90
+    @Volatile private var displayRotationDegrees = 0
     private var waitingForFirstFrame = false
     private var firstFrameCount = 0
     private var lastAnalyzeNs = 0L
+    private var switchInFlight = false
+    private var pendingLensIndex: Int? = null
+    private var firstFrameTimeout: Runnable? = null
+    private var lensSwitchDebounce: Runnable? = null
+    private var debouncedTargetIndex: Int? = null
 
     fun start() {
         if (released || started) return
         started = true
         textureView.surfaceTextureListener = surfaceListener
         textureView.setOnTouchListener { _, event ->
+            if (event.pointerCount > 1 || event.actionMasked == MotionEvent.ACTION_POINTER_DOWN) {
+                onMultiTouch()
+            }
             scaleDetector.onTouchEvent(event)
             true
         }
         if (lenses.isNotEmpty()) {
-            if (textureView.isAvailable) openSelectedLens()
+            if (textureView.isAvailable) textureView.post(::requestOpenSelectedLens)
             return
         }
         if (discovering) return
@@ -117,7 +129,7 @@ internal class Camera2ScanController(
                 if (lensIndex < 0) {
                     LogX.e("Camera2: no usable back lens")
                 } else if (textureView.isAvailable) {
-                    openSelectedLens()
+                    textureView.post(::requestOpenSelectedLens)
                 }
             }
         }
@@ -133,42 +145,78 @@ internal class Camera2ScanController(
     }
 
     fun enableTorch(enabled: Boolean) {
-        torch = enabled && hasFlashUnit()
-        updateRepeatingRequest()
+        cameraHandler.post {
+            torch = enabled && hasFlashUnit()
+            updateRepeatingRequest()
+        }
     }
 
     fun stop() {
         if (!started) return
         started = false
         discovering = false
-        generation++
-        closeSessionAndReader()
-        camera?.close()
-        camera = null
+        val token = ++generation
         waitingForFirstFrame = false
-        frozenPreview?.let { (it.parent as? ViewGroup)?.removeView(it) }
-        frozenPreview = null
+        firstFrameTimeout?.let(textureView::removeCallbacks)
+        firstFrameTimeout = null
+        switchInFlight = false
+        pendingLensIndex = null
+        lensSwitchDebounce?.let(cameraHandler::removeCallbacks)
+        lensSwitchDebounce = null
+        debouncedTargetIndex = null
+        textureView.post(::removeFrozenFrameImmediately)
+        cameraHandler.post {
+            if (token != generation) return@post
+            closeSessionAndReader()
+            camera?.close()
+            camera = null
+        }
     }
 
     fun release() {
+        if (released) return
         released = true
-        stop()
-        closeSessionAndReader()
-        camera?.close()
-        camera = null
-        previewSurface?.release()
-        previewSurface = null
-        cameraThread.quitSafely()
+        started = false
+        discovering = false
+        ++generation
+        waitingForFirstFrame = false
+        firstFrameTimeout?.let(textureView::removeCallbacks)
+        firstFrameTimeout = null
+        switchInFlight = false
+        pendingLensIndex = null
+        lensSwitchDebounce?.let(cameraHandler::removeCallbacks)
+        lensSwitchDebounce = null
+        debouncedTargetIndex = null
+        textureView.post(::removeFrozenFrameImmediately)
+        cameraHandler.post {
+            closeSessionAndReader()
+            camera?.close()
+            camera = null
+            previewSurface?.release()
+            previewSurface = null
+            activeSurfaceTexture = null
+            cameraThread.quitSafely()
+        }
         decodeThread.quitSafely()
-        sessionExecutor.shutdown()
+    }
+
+    private fun requestOpenSelectedLens() {
+        if (released || !started || lensIndex !in lenses.indices || !textureView.isAvailable) return
+        val startingTransaction = !switchInFlight
+        switchInFlight = true
+        if (startingTransaction) freezeFrame()
+        val surfaceTexture = textureView.surfaceTexture ?: return
+        activeSurfaceTexture = surfaceTexture
+        cameraHandler.post { openSelectedLensOnCameraThread(surfaceTexture) }
     }
 
     @SuppressLint("MissingPermission")
-    private fun openSelectedLens() {
-        if (released || !started || lensIndex !in lenses.indices || !textureView.isAvailable) return
+    private fun openSelectedLensOnCameraThread(surfaceTexture: SurfaceTexture) {
+        if (released || !started || lensIndex !in lenses.indices) return
         val lens = lenses[lensIndex]
         if (bindingIndex !in lens.bindings.indices) bindingIndex = 0
         val binding = lens.bindings[bindingIndex]
+        attemptBinding = binding
         attemptLensIndex = lensIndex
         attemptBindingIndex = bindingIndex
         val token = ++generation
@@ -179,12 +227,11 @@ internal class Camera2ScanController(
             binding.openCameraId,
             binding.physicalCameraId ?: "-"
         )
-        freezeFrame()
         closeSessionAndReader()
         val existing = camera
         if (existing != null && existing.id == binding.openCameraId) {
             currentBinding = binding
-            createSession(existing, binding, token)
+            createSession(existing, binding, token, surfaceTexture)
             return
         }
         existing?.close()
@@ -194,7 +241,7 @@ internal class Camera2ScanController(
                 if (released || token != generation) { device.close(); return }
                 camera = device
                 currentBinding = binding
-                createSession(device, binding, token)
+                createSession(device, binding, token, surfaceTexture)
             }
             override fun onDisconnected(device: CameraDevice) {
                 device.close()
@@ -212,7 +259,8 @@ internal class Camera2ScanController(
     private fun createSession(
         device: CameraDevice,
         binding: Camera2LensDiscovery.Binding,
-        token: Int
+        token: Int,
+        surfaceTexture: SurfaceTexture
     ) {
         val logicalChars = runCatching { manager.getCameraCharacteristics(binding.openCameraId) }
             .getOrElse { return tryNextBinding(token, "logical characteristics: ${it.message}") }
@@ -236,9 +284,8 @@ internal class Camera2ScanController(
         sensorOrientation = lensChars.get(CameraCharacteristics.SENSOR_ORIENTATION)
             ?: logicalChars.get(CameraCharacteristics.SENSOR_ORIENTATION)
             ?: 90
-        val surfaceTexture = textureView.surfaceTexture ?: return
         surfaceTexture.setDefaultBufferSize(previewSize.width, previewSize.height)
-        configureTransform()
+        textureView.post(::configureTransform)
         previewSurface?.release()
         previewSurface = Surface(surfaceTexture)
         reader = ImageReader.newInstance(
@@ -257,12 +304,13 @@ internal class Camera2ScanController(
                 updateRepeatingRequest()
                 waitingForFirstFrame = true
                 firstFrameCount = 0
-                textureView.postDelayed({
+                firstFrameTimeout?.let(textureView::removeCallbacks)
+                firstFrameTimeout = Runnable {
                     if (waitingForFirstFrame && token == generation) {
                         waitingForFirstFrame = false
-                        tryNextBinding(token, "preview produced no frames")
+                        cameraHandler.post { tryNextBinding(token, "preview produced no frames") }
                     }
-                }, 2200L)
+                }.also { textureView.postDelayed(it, 2200L) }
             }
             override fun onConfigureFailed(value: CameraCaptureSession) {
                 value.close(); tryNextBinding(token, "session config failed")
@@ -331,13 +379,14 @@ internal class Camera2ScanController(
             Surface.ROTATION_270 -> 270f
             else -> 0f
         }
+        displayRotationDegrees = degrees.toInt()
         matrix.postRotate(degrees, width / 2f, height / 2f)
         textureView.setTransform(matrix)
     }
 
     private fun tryNextBinding(token: Int, reason: String) {
         if (released || token != generation) return
-        val failed = currentBinding
+        val failed = attemptBinding
         failed?.let { failedBindingKeys += bindingKey(it) }
         LogX.w("Camera2 binding failed: %s; binding=%s", reason, failed)
         closeSessionAndReader()
@@ -350,7 +399,7 @@ internal class Camera2ScanController(
         }
         if (next != null) {
             bindingIndex = next
-            openSelectedLens()
+            activeSurfaceTexture?.let(::openSelectedLensOnCameraThread)
             return
         }
 
@@ -358,9 +407,10 @@ internal class Camera2ScanController(
         if (lastWorkingLensIndex in lenses.indices && lastWorkingBindingIndex >= 0) {
             val last = lenses[lastWorkingLensIndex].bindings.getOrNull(lastWorkingBindingIndex)
             if (last != null && bindingKey(last) !in failedBindingKeys) {
+                pendingLensIndex = null
                 lensIndex = lastWorkingLensIndex
                 bindingIndex = lastWorkingBindingIndex
-                openSelectedLens()
+                activeSurfaceTexture?.let(::openSelectedLensOnCameraThread)
                 return
             }
         }
@@ -373,17 +423,23 @@ internal class Camera2ScanController(
             } ?: continue
             lensIndex = main
             bindingIndex = candidate
-            openSelectedLens()
+            activeSurfaceTexture?.let(::openSelectedLensOnCameraThread)
             return
         }
         // Everything exposed by Camera2 failed. Reveal the last frame and stop retrying.
-        fadeFrozenFrame()
+        pendingLensIndex = null
+        switchInFlight = false
+        textureView.post { fadeFrozenFrame() }
     }
 
     private fun bindingKey(binding: Camera2LensDiscovery.Binding): String =
         "${binding.openCameraId}|${binding.physicalCameraId.orEmpty()}"
 
     private fun onImageAvailable(source: ImageReader) {
+        if (source !== reader) {
+            source.acquireLatestImage()?.close()
+            return
+        }
         val image = source.acquireLatestImage() ?: return
         val now = System.nanoTime()
         if (!analyze || now - lastAnalyzeNs < 80_000_000L || !decoding.compareAndSet(false, true)) {
@@ -433,15 +489,8 @@ internal class Camera2ScanController(
         return result
     }
 
-    private fun frameRotationDegrees(): Int {
-        val displayDegrees = when (textureView.display?.rotation ?: Surface.ROTATION_0) {
-            Surface.ROTATION_90 -> 90
-            Surface.ROTATION_180 -> 180
-            Surface.ROTATION_270 -> 270
-            else -> 0
-        }
-        return (sensorOrientation - displayDegrees + 360) % 360
-    }
+    private fun frameRotationDegrees(): Int =
+        (sensorOrientation - displayRotationDegrees + 360) % 360
 
     private fun rotateLuma(data: ByteArray, width: Int, height: Int, degrees: Int): ByteArray {
         if (degrees == 0) return data
@@ -465,14 +514,62 @@ internal class Camera2ScanController(
                 lenses.firstOrNull()?.ratio ?: 0.5f,
                 (lenses.lastOrNull()?.ratio ?: 1f) * maxDigitalZoom()
             )
-            val target = selectLensIndex(virtualZoom)
-            if (target != lensIndex) {
-                failedBindingKeys.clear()
-                lensIndex = target
-                bindingIndex = 0
-                openSelectedLens()
-            } else updateRepeatingRequest()
+            val requestedZoom = virtualZoom
+            cameraHandler.post { handleZoomRequest(requestedZoom) }
             return true
+        }
+    }
+
+    private fun handleZoomRequest(requestedZoom: Float) {
+        if (released || !started) return
+        virtualZoom = requestedZoom
+        val target = selectLensIndex(requestedZoom)
+        // Digital zoom remains frame-by-frame responsive while physical rebind waits
+        // for 140 ms of target stability. This collapses noisy pinch crossings.
+        if (!switchInFlight) updateRepeatingRequest()
+        if (target == lensIndex) {
+            lensSwitchDebounce?.let(cameraHandler::removeCallbacks)
+            lensSwitchDebounce = null
+            debouncedTargetIndex = null
+            return
+        }
+        if (switchInFlight) {
+            pendingLensIndex = target
+            return
+        }
+        if (debouncedTargetIndex == target) return
+        lensSwitchDebounce?.let(cameraHandler::removeCallbacks)
+        debouncedTargetIndex = target
+        lensSwitchDebounce = Runnable {
+            lensSwitchDebounce = null
+            val stableTarget = debouncedTargetIndex
+            debouncedTargetIndex = null
+            if (stableTarget != null && stableTarget == selectLensIndex(virtualZoom) && stableTarget != lensIndex) {
+                beginLensSwitch(stableTarget)
+            }
+        }.also { cameraHandler.postDelayed(it, 140L) }
+    }
+
+    private fun beginLensSwitch(target: Int) {
+        if (target !in lenses.indices || target == lensIndex) return
+        failedBindingKeys.clear()
+        lensSwitchDebounce?.let(cameraHandler::removeCallbacks)
+        lensSwitchDebounce = null
+        debouncedTargetIndex = null
+        pendingLensIndex = null
+        lensIndex = target
+        bindingIndex = 0
+        textureView.post(::requestOpenSelectedLens)
+    }
+
+    private fun finishLensSwitch() {
+        switchInFlight = false
+        val pending = pendingLensIndex
+        pendingLensIndex = null
+        if (pending != null && pending != lensIndex) {
+            cameraHandler.post { beginLensSwitch(pending) }
+        } else {
+            updateRepeatingRequest()
         }
     }
 
@@ -533,7 +630,7 @@ internal class Camera2ScanController(
 
     private val surfaceListener = object : TextureView.SurfaceTextureListener {
         override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
-            openSelectedLens()
+            textureView.post(::requestOpenSelectedLens)
         }
         override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) = Unit
         override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
@@ -544,16 +641,19 @@ internal class Camera2ScanController(
             firstFrameCount++
             if (firstFrameCount >= 2) {
                 waitingForFirstFrame = false
+                firstFrameTimeout?.let(textureView::removeCallbacks)
+                firstFrameTimeout = null
                 lastWorkingLensIndex = attemptLensIndex
                 lastWorkingBindingIndex = attemptBindingIndex
                 failedBindingKeys.clear()
+                attemptBinding = null
                 LogX.i(
                     "Camera2 first frames: lens=%s open=%s physical=%s",
                     lenses.getOrNull(lastWorkingLensIndex)?.id ?: "?",
                     currentBinding?.openCameraId ?: "?",
                     currentBinding?.physicalCameraId ?: "-"
                 )
-                fadeFrozenFrame()
+                fadeFrozenFrame { cameraHandler.post(::finishLensSwitch) }
             }
         }
     }
@@ -579,17 +679,23 @@ internal class Camera2ScanController(
     private fun closeSessionAndReader() {
         runCatching { session?.stopRepeating() }
         session?.close(); session = null
+        reader?.setOnImageAvailableListener(null, null)
         reader?.close(); reader = null
         requestBuilder = null
     }
 
     private fun freezeFrame() {
         val bitmap = textureView.bitmap ?: return
-        val parent = textureView.parent as? ViewGroup ?: return
-        frozenPreview?.let { (it.parent as? ViewGroup)?.removeView(it) }
+        val parent = textureView.parent as? ViewGroup ?: run {
+            bitmap.recycle()
+            return
+        }
+        // Remove the previous overlay synchronously before replacing the reference.
+        removeFrozenFrameImmediately()
         val overlay = ImageView(context).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
             setImageBitmap(bitmap)
+            alpha = 1f
         }
         parent.addView(
             overlay,
@@ -599,13 +705,35 @@ internal class Camera2ScanController(
         frozenPreview = overlay
     }
 
-    private fun fadeFrozenFrame() {
-        frozenPreview?.animate()?.alpha(0f)?.setDuration(160L)?.withEndAction {
-            frozenPreview?.let { view ->
-                (view.parent as? ViewGroup)?.removeView(view)
-                (view.drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap?.recycle()
+    private fun fadeFrozenFrame(onEnd: () -> Unit = {}) {
+        val overlay = frozenPreview ?: run {
+            onEnd()
+            return
+        }
+        overlay.animate().cancel()
+        overlay.animate()
+            .alpha(0f)
+            .setDuration(240L)
+            .setInterpolator(android.view.animation.PathInterpolator(0.2f, 0f, 0f, 1f))
+            .withEndAction {
+                // This callback owns only the overlay it captured. Never touch a newer one.
+                (overlay.parent as? ViewGroup)?.removeView(overlay)
+                (overlay.drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap?.let { bitmap ->
+                    if (!bitmap.isRecycled) bitmap.recycle()
+                }
+                if (frozenPreview === overlay) frozenPreview = null
+                onEnd()
             }
-            frozenPreview = null
-        }?.start()
+            .start()
+    }
+
+    private fun removeFrozenFrameImmediately() {
+        val overlay = frozenPreview ?: return
+        overlay.animate().cancel()
+        (overlay.parent as? ViewGroup)?.removeView(overlay)
+        (overlay.drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap?.let { bitmap ->
+            if (!bitmap.isRecycled) bitmap.recycle()
+        }
+        if (frozenPreview === overlay) frozenPreview = null
     }
 }
