@@ -42,6 +42,8 @@
     <string name="generate_share">分享图片</string>
     <string name="generate_empty">请先输入内容</string>
     <string name="generate_failed">生成失败，请检查内容格式</string>
+    <string name="generate_failed_qr_long">内容过长，无法生成二维码（约 2KB 以内更稳妥）。可缩短后再试。</string>
+    <string name="generate_failed_barcode">条形码生成失败。CODE_128 对字符有限制，请改用数字/字母或改用二维码。</string>
     <string name="generate_share_failed">分享失败</string>
     <string name="generate_encoded_fmt">当前内容：%1$s</string>
     <string name="generate_sample_qr_content">https://github.com/Lanlan13-14/ZXingX</string>

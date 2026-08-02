@@ -29,11 +29,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import java.nio.charset.Charset
 
 /**
  * 生成二维码 / 条形码。
  *
  * 用户可输入任意内容，点「生成」后编码为图片；二维码中心使用 ZXingX logo。
+ * 长文本会自动降低容错等级、缩小 logo，必要时去掉 logo 以保证能生成。
  */
 class CodeActivity : AppCompatActivity() {
 
@@ -90,7 +92,6 @@ class CodeActivity : AppCompatActivity() {
             }
         }
 
-        // 进入页面先按默认示例生成一版，方便立刻看到效果
         generateFromInput(showEmptyToast = false)
     }
 
@@ -107,31 +108,83 @@ class CodeActivity : AppCompatActivity() {
         lifecycleScope.launch {
             val bitmap = withContext(Dispatchers.IO) {
                 if (isQRCode) {
-                    val logo = BitmapFactory.decodeResource(resources, R.drawable.logo)
-                    CodeUtils.createQRCode(content, 600, logo)
+                    createRobustQRCode(content)
                 } else {
-                    CodeUtils.createBarCode(
-                        content,
-                        BarcodeFormat.CODE_128,
-                        800,
-                        200,
-                        null,
-                        true
-                    )
+                    createRobustBarCode(content)
                 }
             }
             btnGenerate.isEnabled = true
             if (bitmap == null) {
-                Toast.makeText(this@CodeActivity, R.string.generate_failed, Toast.LENGTH_SHORT)
-                    .show()
+                val msg = if (isQRCode) {
+                    R.string.generate_failed_qr_long
+                } else {
+                    R.string.generate_failed_barcode
+                }
+                Toast.makeText(this@CodeActivity, msg, Toast.LENGTH_LONG).show()
                 return@launch
             }
+            generatedBitmap?.takeIf { it !== bitmap && !it.isRecycled }?.recycle()
             generatedBitmap = bitmap
             lastContent = content
             ivCode.setImageBitmap(bitmap)
             tvEncoded.text = getString(R.string.generate_encoded_fmt, content)
             btnShareCode.isEnabled = true
         }
+    }
+
+    /**
+     * Adaptive QR generation for short and long payloads.
+     * Larger pixel size for dense codes; smaller logo; drop logo if still needed.
+     */
+    private fun createRobustQRCode(content: String): Bitmap? {
+        val byteLen = content.toByteArray(Charset.forName("UTF-8")).size
+        val size = when {
+            byteLen <= 120 -> 720
+            byteLen <= 400 -> 860
+            byteLen <= 900 -> 1000
+            else -> 1200
+        }
+        val logoRatio = when {
+            byteLen <= 80 -> 0.18f
+            byteLen <= 300 -> 0.14f
+            byteLen <= 800 -> 0.10f
+            else -> 0.08f
+        }
+        val logo = try {
+            BitmapFactory.decodeResource(resources, R.drawable.logo)
+        } catch (_: Exception) {
+            null
+        }
+
+        // 1) with logo + adaptive ECC inside CodeUtils
+        CodeUtils.createQRCode(content, size, logo, logoRatio)?.let { return it }
+        // 2) without logo (max capacity)
+        CodeUtils.createQRCode(content, size, null)?.let { return it }
+        // 3) last resort: smaller canvas sometimes helps memory-bound devices; capacity is version-limited not size-limited
+        return CodeUtils.createQRCode(content, 800, null)
+    }
+
+    private fun createRobustBarCode(content: String): Bitmap? {
+        // CODE_128 is not free-form Unicode; try as-is then a Latin-1 fallback path is not ideal.
+        // Prefer wider canvas for long content so modules stay readable.
+        val width = (content.length * 14).coerceIn(600, 1600)
+        CodeUtils.createBarCode(
+            content,
+            BarcodeFormat.CODE_128,
+            width,
+            220,
+            null,
+            true
+        )?.let { return it }
+        // Some strings fail CODE_128; retry without human-readable text overlay.
+        return CodeUtils.createBarCode(
+            content,
+            BarcodeFormat.CODE_128,
+            width,
+            200,
+            null,
+            false
+        )
     }
 
     private fun shareGeneratedCode() {

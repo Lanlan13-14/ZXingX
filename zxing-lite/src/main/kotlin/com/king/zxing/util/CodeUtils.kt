@@ -78,24 +78,101 @@ object CodeUtils {
         size: Int,
         logo: Bitmap? = null,
         @FloatRange(from = 0.0, to = 1.0) ratio: Float = 0.2f,
-        hints: Map<EncodeHintType, *>? = buildQRCodeHints(),
+        hints: Map<EncodeHintType, *>? = null,
         @ColorInt codeColor: Int = Color.BLACK
     ): Bitmap? {
-        return try {
-            val bitMatrix: BitMatrix = QRCodeWriter().encode(content, BarcodeFormat.QR_CODE, size, size, hints)
-            val pixels = IntArray(size * size)
-            for (y in 0 until size) {
-                for (x in 0 until size) {
-                    pixels[y * size + x] = if (bitMatrix.get(x, y)) codeColor else Color.WHITE
+        if (content.isEmpty() || size <= 0) {
+            return null
+        }
+
+        // Long text + always-H ECC often throws WriterException ("Data too big").
+        // Try high → medium → low; shrink logo; finally drop logo.
+        val levels = adaptiveErrorCorrectionLevels(content, logo != null)
+        val ratios = if (logo != null) {
+            listOf(ratio.coerceIn(0.08f, 0.25f), (ratio * 0.7f).coerceAtLeast(0.08f), 0f)
+        } else {
+            listOf(0f)
+        }
+
+        for (level in levels) {
+            val encodeHints = hints ?: buildQRCodeHints(level)
+            val raw = encodeQRCodeBitmap(content, size, encodeHints, codeColor) ?: continue
+            for (r in ratios) {
+                if (r <= 0f || logo == null) {
+                    return raw
+                }
+                val withLogo = addLogo(raw, logo, r)
+                if (withLogo != null) {
+                    return withLogo
                 }
             }
+            return raw
+        }
+        return null
+    }
 
-            var bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-            bitmap.setPixels(pixels, 0, size, 0, 0, size, size)
-            if (logo != null) {
-                bitmap = addLogo(bitmap, logo, ratio) ?: return null
+    /**
+     * Prefer higher ECC when content is short / logo present; fall back for long payloads.
+     */
+    private fun adaptiveErrorCorrectionLevels(
+        content: String,
+        hasLogo: Boolean
+    ): List<ErrorCorrectionLevel> {
+        // Byte-oriented length (UTF-8) is what QR capacity uses for multi-byte text.
+        val bytes = try {
+            content.toByteArray(Charsets.UTF_8).size
+        } catch (_: Exception) {
+            content.length
+        }
+        return when {
+            bytes <= 80 -> {
+                if (hasLogo) {
+                    listOf(ErrorCorrectionLevel.H, ErrorCorrectionLevel.Q, ErrorCorrectionLevel.M, ErrorCorrectionLevel.L)
+                } else {
+                    listOf(ErrorCorrectionLevel.M, ErrorCorrectionLevel.L, ErrorCorrectionLevel.Q, ErrorCorrectionLevel.H)
+                }
             }
-            bitmap
+            bytes <= 400 -> {
+                listOf(ErrorCorrectionLevel.Q, ErrorCorrectionLevel.M, ErrorCorrectionLevel.L, ErrorCorrectionLevel.H)
+            }
+            bytes <= 1200 -> {
+                listOf(ErrorCorrectionLevel.M, ErrorCorrectionLevel.L, ErrorCorrectionLevel.Q)
+            }
+            else -> {
+                // Near version-40 limits: prioritize capacity.
+                listOf(ErrorCorrectionLevel.L, ErrorCorrectionLevel.M)
+            }
+        }
+    }
+
+    private fun encodeQRCodeBitmap(
+        content: String,
+        size: Int,
+        hints: Map<EncodeHintType, *>?,
+        @ColorInt codeColor: Int
+    ): Bitmap? {
+        return try {
+            val bitMatrix: BitMatrix =
+                QRCodeWriter().encode(content, BarcodeFormat.QR_CODE, size, size, hints)
+            // BitMatrix may be larger than requested size for high-version codes; use actual size.
+            val width = bitMatrix.width
+            val height = bitMatrix.height
+            val pixels = IntArray(width * height)
+            for (y in 0 until height) {
+                val offset = y * width
+                for (x in 0 until width) {
+                    pixels[offset + x] = if (bitMatrix.get(x, y)) codeColor else Color.WHITE
+                }
+            }
+            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+            bitmap.setPixels(pixels, 0, width, 0, 0, width, height)
+            if (width != size || height != size) {
+                Bitmap.createScaledBitmap(bitmap, size, size, false).also {
+                    if (it != bitmap) bitmap.recycle()
+                }
+            } else {
+                bitmap
+            }
         } catch (e: Exception) {
             LogX.w(e)
             null
@@ -475,10 +552,12 @@ object CodeUtils {
      * - 容错级别：`H`
      * - 边距：`1`
      */
-    private fun buildQRCodeHints(): Map<EncodeHintType, Any> {
+    private fun buildQRCodeHints(
+        level: ErrorCorrectionLevel = ErrorCorrectionLevel.H
+    ): Map<EncodeHintType, Any> {
         return HashMap<EncodeHintType, Any>().apply {
-            put(EncodeHintType.CHARACTER_SET, "utf-8")
-            put(EncodeHintType.ERROR_CORRECTION, ErrorCorrectionLevel.H)
+            put(EncodeHintType.CHARACTER_SET, "UTF-8")
+            put(EncodeHintType.ERROR_CORRECTION, level)
             put(EncodeHintType.MARGIN, 1)
         }
     }
