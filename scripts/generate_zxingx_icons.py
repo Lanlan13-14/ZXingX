@@ -12,8 +12,7 @@ RES = ROOT / "app" / "src" / "main" / "res"
 SRC_SVG = ROOT / "design" / "zxingx_icon.svg"
 WEB_PNG = ROOT / "app" / "src" / "main" / "ic_launcher-web.png"
 
-# Adaptive icon foreground: 108dp base; content inset so safe zone (~66%) keeps full art.
-# We draw full 1024 art into the center 72/108 of the canvas.
+# Adaptive icon foreground: 108dp canvas; art scaled into safe zone (~72%).
 FOREGROUND_SVG = """<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
   <defs>
@@ -21,33 +20,25 @@ FOREGROUND_SVG = """<?xml version="1.0" encoding="UTF-8"?>
       <path d="M512 24C818 24 1000 206 1000 512S818 1000 512 1000 24 818 24 512 206 24 512 24Z"/>
     </clipPath>
   </defs>
-  <!-- transparent outside; white plate only inside rounded square so adaptive mask is clean -->
-  <g transform="translate(128,128) scale(0.75)">
+  <g transform="translate(112,112) scale(0.78125)">
     <rect width="1024" height="1024" fill="#ffffff"/>
     <g clip-path="url(#sqClip)">
-      <g stroke="#1d1d1f" stroke-width="40" stroke-linecap="round" fill="none">
-        <path d="M181 281 V211 a30 30 0 0 1 30-30 h70"/>
-        <path d="M843 281 V211 a30 30 0 0 0-30-30 h-70"/>
-        <path d="M181 743 V813 a30 30 0 0 0 30 30 h70"/>
-        <path d="M843 743 V813 a30 30 0 0 1-30 30 h-70"/>
+      <g fill="none" stroke-width="36">
+        <rect x="232" y="220" width="228" height="228" rx="42" stroke="#1d1d1f"/>
+        <rect x="564" y="220" width="228" height="228" rx="42" stroke="#8e8e93"/>
+        <rect x="232" y="576" width="228" height="228" rx="42" stroke="#8e8e93"/>
       </g>
-      <g fill="none" stroke-width="32">
-        <rect x="276" y="265" width="176" height="176" rx="34" stroke="#1d1d1f"/>
-        <rect x="572" y="265" width="176" height="176" rx="34" stroke="#8e8e93"/>
-        <rect x="276" y="583" width="176" height="176" rx="34" stroke="#8e8e93"/>
-      </g>
-      <rect x="340" y="329" width="48" height="48" rx="12" fill="#0A84FF"/>
-      <rect x="576" y="587" width="72" height="72" rx="17" fill="#1d1d1f"/>
-      <rect x="672" y="587" width="72" height="72" rx="17" fill="#8e8e93"/>
-      <rect x="576" y="683" width="72" height="72" rx="17" fill="#8e8e93"/>
-      <rect x="672" y="683" width="72" height="72" rx="17" fill="#0A84FF"/>
-      <rect x="276" y="505" width="472" height="14" rx="7" fill="#0A84FF"/>
+      <rect x="310" y="298" width="72" height="72" rx="16" fill="#0A84FF"/>
+      <rect x="568" y="580" width="96" height="96" rx="22" fill="#1d1d1f"/>
+      <rect x="692" y="580" width="96" height="96" rx="22" fill="#8e8e93"/>
+      <rect x="568" y="704" width="96" height="96" rx="22" fill="#8e8e93"/>
+      <rect x="692" y="704" width="96" height="96" rx="22" fill="#0A84FF"/>
+      <rect x="232" y="498" width="560" height="18" rx="9" fill="#0A84FF"/>
     </g>
   </g>
 </svg>
 """
 
-# Legacy launcher (fully filled square with squircle clip already in source)
 LEGACY_SIZES = {
     "mipmap-mdpi": 48,
     "mipmap-hdpi": 72,
@@ -56,7 +47,6 @@ LEGACY_SIZES = {
     "mipmap-xxxhdpi": 192,
 }
 
-# Adaptive foreground sizes (108dp * density)
 FOREGROUND_SIZES = {
     "mipmap-mdpi": 108,
     "mipmap-hdpi": 162,
@@ -106,11 +96,10 @@ def main() -> None:
         render(SRC_SVG, WEB_PNG, 512)
         print(f"web {WEB_PNG} 512px")
 
-    # Adaptive XML + background color
     (RES / "values" / "ic_launcher_background.xml").write_text(
         '<?xml version="1.0" encoding="utf-8"?>\n'
         "<resources>\n"
-        "    <color name=\"ic_launcher_background\">#FFFFFF</color>\n"
+        '    <color name="ic_launcher_background">#FFFFFF</color>\n'
         "</resources>\n",
         encoding="utf-8",
     )
@@ -126,7 +115,6 @@ def main() -> None:
     (anydpi / "ic_launcher.xml").write_text(adaptive, encoding="utf-8")
     (anydpi / "ic_launcher_round.xml").write_text(adaptive, encoding="utf-8")
 
-    # Vector background for older tooling references
     (RES / "drawable" / "ic_launcher_background.xml").write_text(
         '<?xml version="1.0" encoding="utf-8"?>\n'
         '<vector xmlns:android="http://schemas.android.com/apk/res/android"\n'

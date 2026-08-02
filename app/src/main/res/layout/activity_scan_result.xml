@@ -9,7 +9,6 @@
     android:fitsSystemWindows="true"
     tools:context=".ScanResultActivity">
 
-    <!-- Top bar: × · 扫描结果 · ✓  — matches reference screenshot -->
     <LinearLayout
         android:id="@+id/toolbar"
         android:layout_width="0dp"
@@ -100,10 +99,11 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:background="@color/colorSurface"
+        android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="@dimen/space_20"
+        android:paddingStart="@dimen/space_16"
         android:paddingTop="@dimen/space_12"
-        android:paddingEnd="@dimen/space_20"
+        android:paddingEnd="@dimen/space_16"
         android:paddingBottom="@dimen/space_20"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
@@ -116,10 +116,14 @@
             android:layout_height="48dp"
             android:layout_marginEnd="@dimen/space_8"
             android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:singleLine="true"
             android:text="@string/scan_result_copy"
             app:icon="@drawable/ic_copy"
             app:iconGravity="textStart"
-            app:iconPadding="8dp"
+            app:iconPadding="6dp"
+            app:iconSize="18dp"
             app:iconTint="@color/colorPrimary" />
 
         <com.google.android.material.button.MaterialButton
@@ -129,10 +133,14 @@
             android:layout_height="48dp"
             android:layout_marginEnd="@dimen/space_8"
             android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:singleLine="true"
             android:text="@string/scan_result_share"
             app:icon="@drawable/ic_share"
             app:iconGravity="textStart"
-            app:iconPadding="8dp"
+            app:iconPadding="6dp"
+            app:iconSize="18dp"
             app:iconTint="@color/colorPrimary" />
 
         <com.google.android.material.button.MaterialButton
@@ -141,11 +149,15 @@
             android:layout_width="0dp"
             android:layout_height="48dp"
             android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:singleLine="true"
             android:text="@string/scan_result_open"
             android:visibility="gone"
             app:icon="@drawable/ic_open"
             app:iconGravity="textStart"
-            app:iconPadding="8dp"
+            app:iconPadding="6dp"
+            app:iconSize="18dp"
             app:iconTint="@color/colorPrimary"
             tools:visibility="visible" />
     </LinearLayout>

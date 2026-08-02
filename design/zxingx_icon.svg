@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-  <!-- ZXingX app icon — from design brief -->
+  <!-- ZXingX app icon: no viewfinder corners, enlarged QR core -->
   <defs>
     <clipPath id="sqClip">
       <path d="M512 24C818 24 1000 206 1000 512S818 1000 512 1000 24 818 24 512 206 24 512 24Z"/>
@@ -8,27 +8,24 @@
   </defs>
   <rect width="1024" height="1024" fill="#ffffff"/>
   <g clip-path="url(#sqClip)">
-    <!-- Viewfinder corners -->
-    <g stroke="#1d1d1f" stroke-width="40" stroke-linecap="round" fill="none">
-      <path d="M181 281 V211 a30 30 0 0 1 30-30 h70"/>
-      <path d="M843 281 V211 a30 30 0 0 0-30-30 h-70"/>
-      <path d="M181 743 V813 a30 30 0 0 0 30 30 h70"/>
-      <path d="M843 743 V813 a30 30 0 0 1-30 30 h-70"/>
+    <!--
+      Enlarged QR motif (no outer L-corners).
+      Finder size 228; columns x=232 / 564; rows y=220 / 576
+      Scan line through vertical center.
+    -->
+    <g fill="none" stroke-width="36">
+      <rect x="232" y="220" width="228" height="228" rx="42" stroke="#1d1d1f"/>
+      <rect x="564" y="220" width="228" height="228" rx="42" stroke="#8e8e93"/>
+      <rect x="232" y="576" width="228" height="228" rx="42" stroke="#8e8e93"/>
     </g>
-    <!-- QR finder frames -->
-    <g fill="none" stroke-width="32">
-      <rect x="276" y="265" width="176" height="176" rx="34" stroke="#1d1d1f"/>
-      <rect x="572" y="265" width="176" height="176" rx="34" stroke="#8e8e93"/>
-      <rect x="276" y="583" width="176" height="176" rx="34" stroke="#8e8e93"/>
-    </g>
-    <!-- Primary finder core -->
-    <rect x="340" y="329" width="48" height="48" rx="12" fill="#0A84FF"/>
-    <!-- Bottom-right data modules -->
-    <rect x="576" y="587" width="72" height="72" rx="17" fill="#1d1d1f"/>
-    <rect x="672" y="587" width="72" height="72" rx="17" fill="#8e8e93"/>
-    <rect x="576" y="683" width="72" height="72" rx="17" fill="#8e8e93"/>
-    <rect x="672" y="683" width="72" height="72" rx="17" fill="#0A84FF"/>
+    <!-- Primary finder core, centered in TL (346,334) -->
+    <rect x="310" y="298" width="72" height="72" rx="16" fill="#0A84FF"/>
+    <!-- BR 2x2 modules -->
+    <rect x="568" y="580" width="96" height="96" rx="22" fill="#1d1d1f"/>
+    <rect x="692" y="580" width="96" height="96" rx="22" fill="#8e8e93"/>
+    <rect x="568" y="704" width="96" height="96" rx="22" fill="#8e8e93"/>
+    <rect x="692" y="704" width="96" height="96" rx="22" fill="#0A84FF"/>
     <!-- Scan line -->
-    <rect x="276" y="505" width="472" height="14" rx="7" fill="#0A84FF"/>
+    <rect x="232" y="498" width="560" height="18" rx="9" fill="#0A84FF"/>
   </g>
 </svg>
