@@ -26,7 +26,6 @@
     <string name="scan_result_empty">未识别到有效内容</string>
     <string name="scan_result_copied">已复制到剪贴板</string>
     <string name="scan_result_close">关闭</string>
-    <string name="scan_result_confirm">确认</string>
     <string name="scan_result_copy">复制</string>
     <string name="scan_result_share">分享</string>
     <string name="scan_result_open">打开</string>

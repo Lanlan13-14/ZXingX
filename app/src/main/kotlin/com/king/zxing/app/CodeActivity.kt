@@ -232,7 +232,7 @@ class CodeActivity : AppCompatActivity() {
 
     fun onClick(v: View) {
         when (v.id) {
-            R.id.ivLeft -> swipeBack.requestBack()
+            R.id.ivLeft -> swipeBack.requestToolbarBack()
         }
     }
 }

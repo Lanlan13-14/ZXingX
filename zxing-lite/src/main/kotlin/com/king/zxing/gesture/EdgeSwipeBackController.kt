@@ -45,6 +45,7 @@ class EdgeSwipeBackController private constructor(
     private var downY = 0f
     private var velocityTracker: VelocityTracker? = null
     private var animator: ValueAnimator? = null
+    private var animationGeneration = 0
     private var cornerRadius = 0f
     private var finishing = false
 
@@ -86,6 +87,46 @@ class EdgeSwipeBackController private constructor(
 
     fun requestBack() {
         if (!finishing) commit()
+    }
+
+    /**
+     * Toolbar back uses a dedicated iOS-like navigation pop: 350 ms, pure
+     * horizontal movement, no predictive scale or rounded-card transform.
+     */
+    fun requestToolbarBack() {
+        if (finishing) return
+        finishing = true
+        backCallback.isEnabled = false
+        animationGeneration++
+        animator?.cancel()
+        val generation = animationGeneration
+        val startX = surface.translationX
+        var cancelled = false
+        surface.clipToOutline = false
+        cornerRadius = 0f
+        surface.invalidateOutline()
+        animator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 350L
+            interpolator = PathInterpolator(0.32f, 0.72f, 0f, 1f)
+            addUpdateListener {
+                val p = it.animatedValue as Float
+                surface.translationX = startX + (surface.width.toFloat() - startX) * p
+                surface.translationY = 0f
+                surface.scaleX = 1f
+                surface.scaleY = 1f
+                surface.alpha = 1f
+            }
+            addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationCancel(animation: android.animation.Animator) {
+                    cancelled = true
+                }
+
+                override fun onAnimationEnd(animation: android.animation.Animator) {
+                    if (!cancelled && generation == animationGeneration) finishImmediately()
+                }
+            })
+            start()
+        }
     }
 
     private fun animateEnter() {
@@ -139,19 +180,64 @@ class EdgeSwipeBackController private constructor(
             begin()
             progress = 0f
         }
-        animateTo(1f, true)
+        animatePredictiveExit()
+    }
+
+    /** Continue from the exact gesture frame to a fully off-screen card. */
+    private fun animatePredictiveExit() {
+        if (finishing) return
+        finishing = true
+        backCallback.isEnabled = false
+        animationGeneration++
+        animator?.cancel()
+        val generation = animationGeneration
+        val startX = surface.translationX
+        val startScale = surface.scaleX
+        val startRadius = cornerRadius
+        var cancelled = false
+        animator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = (280L - 80L * progress).toLong().coerceIn(200L, 280L)
+            interpolator = PathInterpolator(0.32f, 0.72f, 0f, 1f)
+            addUpdateListener {
+                val p = it.animatedValue as Float
+                surface.translationX = startX + direction * (surface.width * 1.04f - abs(startX)) * p
+                surface.translationY = 0f
+                surface.scaleX = startScale + (0.985f - startScale) * p
+                surface.scaleY = surface.scaleX
+                surface.alpha = 1f
+                cornerRadius = startRadius * (1f - p)
+                surface.invalidateOutline()
+            }
+            addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationCancel(animation: android.animation.Animator) {
+                    cancelled = true
+                }
+
+                override fun onAnimationEnd(animation: android.animation.Animator) {
+                    if (!cancelled && generation == animationGeneration) finishImmediately()
+                }
+            })
+            start()
+        }
     }
 
     private fun animateTo(target: Float, finishAtEnd: Boolean) {
         animator?.cancel()
         val start = progress
+        val generation = ++animationGeneration
+        var cancelled = false
         animator = ValueAnimator.ofFloat(start, target).apply {
             duration = (150L + 90L * abs(target - start)).toLong()
             interpolator = settle
             addUpdateListener { apply(it.animatedValue as Float) }
             addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationCancel(animation: android.animation.Animator) {
+                    cancelled = true
+                }
+
                 override fun onAnimationEnd(animation: android.animation.Animator) {
-                    if (finishAtEnd) finishImmediately() else reset()
+                    if (cancelled || generation != animationGeneration) return
+                    if (finishAtEnd) animatePredictiveExit() else reset()
                 }
             })
             start()
@@ -159,8 +245,6 @@ class EdgeSwipeBackController private constructor(
     }
 
     private fun finishImmediately() {
-        if (finishing) return
-        finishing = true
         backCallback.isEnabled = false
         activity.finish()
         activity.overridePendingTransition(0, 0)

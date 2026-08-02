@@ -16,7 +16,7 @@ import com.king.zxing.gesture.EdgeSwipeBackController
 /**
  * 扫描结果页：替代 Toast 小消息提示。
  *
- * 顶部：关闭 · 标题 · 确认；正文展示完整扫描内容；底部提供复制/分享/打开。
+ * 顶部：返回 · 标题；正文展示完整扫描内容；底部提供复制/分享/打开。
  */
 class ScanResultActivity : AppCompatActivity() {
 
@@ -41,7 +41,6 @@ class ScanResultActivity : AppCompatActivity() {
         btnOpen = findViewById(R.id.btnOpen)
 
         val btnClose = findViewById<ImageButton>(R.id.btnClose)
-        val btnConfirm = findViewById<ImageButton>(R.id.btnConfirm)
         val btnCopy = findViewById<MaterialButton>(R.id.btnCopy)
         val btnShare = findViewById<MaterialButton>(R.id.btnShare)
 
@@ -57,16 +56,10 @@ class ScanResultActivity : AppCompatActivity() {
         }
         btnOpen.isVisible = isUrl
 
-        btnClose.setOnClickListener { swipeBack.requestBack() }
-        btnConfirm.setOnClickListener { finishWithOk() }
+        btnClose.setOnClickListener { swipeBack.requestToolbarBack() }
         btnCopy.setOnClickListener { copyResult() }
         btnShare.setOnClickListener { shareResult() }
         btnOpen.setOnClickListener { openResult() }
-    }
-
-    private fun finishWithOk() {
-        setResult(RESULT_OK)
-        swipeBack.requestBack()
     }
 
     private fun copyResult() {

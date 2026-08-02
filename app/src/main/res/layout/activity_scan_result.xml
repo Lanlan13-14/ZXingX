@@ -24,8 +24,8 @@
         <ImageButton
             android:id="@+id/btnClose"
             style="@style/Widget.App.IconButton"
-            android:contentDescription="@string/scan_result_close"
-            android:src="@drawable/ic_close" />
+            android:contentDescription="@string/back"
+            android:src="@drawable/ic_back" />
 
         <TextView
             android:id="@+id/tvTitle"
@@ -39,11 +39,9 @@
             android:textSize="@dimen/size_18sp"
             android:textStyle="bold" />
 
-        <ImageButton
-            android:id="@+id/btnConfirm"
-            style="@style/Widget.App.IconButton"
-            android:contentDescription="@string/scan_result_confirm"
-            android:src="@drawable/ic_check" />
+        <Space
+            android:layout_width="@dimen/icon_button_size"
+            android:layout_height="@dimen/icon_button_size" />
     </LinearLayout>
 
     <androidx.core.widget.NestedScrollView

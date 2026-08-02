@@ -125,11 +125,15 @@ def main() -> int:
 
     # Result layout structure matches reference screenshot semantics
     result_ids = collect_ids(RES / "layout" / "activity_scan_result.xml")
-    for required in ("btnClose", "btnConfirm", "tvTitle", "tvResult", "btnCopy", "btnShare", "btnOpen"):
+    for required in ("btnClose", "tvTitle", "tvResult", "btnCopy", "btnShare", "btnOpen"):
         if required in result_ids:
             ok(f"result layout id {required}")
         else:
             fail(f"result layout missing id {required}")
+    if "btnConfirm" not in result_ids:
+        ok("result confirmation button removed")
+    else:
+        fail("result confirmation button still present")
 
     result_xml = (RES / "layout" / "activity_scan_result.xml").read_text(encoding="utf-8")
     if "扫描结果" in (RES / "values" / "strings.xml").read_text(encoding="utf-8") or "@string/scan_result_title" in result_xml:
