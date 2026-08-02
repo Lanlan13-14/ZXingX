@@ -70,8 +70,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun openScanResult(text: String?) {
-        // Use the platform Activity transition so Android can render predictive back.
-        resultLauncher.launch(ScanResultActivity.createIntent(this, text))
+        val content = text.orEmpty()
+        if (PaymentQrRouter.openIfPaymentQr(this, content)) return
+        resultLauncher.launch(ScanResultActivity.createIntent(this, content))
     }
 
     private fun parsePhoto(uri: Uri?) {

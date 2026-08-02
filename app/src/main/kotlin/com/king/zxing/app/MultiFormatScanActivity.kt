@@ -20,11 +20,21 @@ import com.king.zxing.analyze.MultiFormatAnalyzer
  */
 class MultiFormatScanActivity : BarcodeCameraScanActivity() {
 
+    private var paymentAppOpened = false
+
     private val resultLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) {
         // 结果页关闭后继续扫码
         cameraScan.setAnalyzeImage(true)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (paymentAppOpened) {
+            paymentAppOpened = false
+            cameraScan.setAnalyzeImage(true)
+        }
     }
 
     override fun initCameraScan(cameraScan: CameraScan<Result>) {
@@ -45,7 +55,11 @@ class MultiFormatScanActivity : BarcodeCameraScanActivity() {
 
     override fun onScanResultCallback(result: AnalyzeResult<Result>) {
         cameraScan.setAnalyzeImage(false)
-        val intent = ScanResultActivity.createIntent(this, result.result.text)
-        resultLauncher.launch(intent)
+        val content = result.result.text.orEmpty()
+        if (PaymentQrRouter.openIfPaymentQr(this, content)) {
+            paymentAppOpened = true
+            return
+        }
+        resultLauncher.launch(ScanResultActivity.createIntent(this, content))
     }
 }
