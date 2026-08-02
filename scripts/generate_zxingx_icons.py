@@ -96,6 +96,12 @@ def main() -> None:
         render(SRC_SVG, WEB_PNG, 512)
         print(f"web {WEB_PNG} 512px")
 
+        # QR center logo must be the exact same artwork as the launcher icon.
+        logo_dir = RES / "drawable-xxhdpi"
+        logo_dir.mkdir(parents=True, exist_ok=True)
+        render(SRC_SVG, logo_dir / "logo.png", 256)
+        print(f"qr logo {logo_dir / 'logo.png'} 256px")
+
     (RES / "values" / "ic_launcher_background.xml").write_text(
         '<?xml version="1.0" encoding="utf-8"?>\n'
         "<resources>\n"
