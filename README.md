@@ -5,7 +5,7 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/Lanlan13-14/ZXingX/build.yml?branch=main&logo=github)](https://github.com/Lanlan13-14/ZXingX/actions/workflows/build.yml)
 [![Release](https://img.shields.io/github/v/release/Lanlan13-14/ZXingX?logo=github)](https://github.com/Lanlan13-14/ZXingX/releases)
 [![API](https://img.shields.io/badge/API-23%2B-brightgreen?logo=android)](https://developer.android.com/guide/topics/manifest/uses-sdk-element#ApiLevels)
-[![License](https://img.shields.io/github/license/Lanlan13-14/ZXingX?logo=open-source-initiative)](https://opensource.org/licenses/apache-2-0)
+[![License](https://img.shields.io/github/license/Lanlan13-14/ZXingX?logo=gnu)](https://www.gnu.org/licenses/gpl-3.0.html)
 
 **ZXingX** 是基于 [jenly1314/ZXingLite](https://github.com/jenly1314/ZXingLite) 的 **现代化修改版** 示例应用。
 
@@ -166,9 +166,24 @@ python3 scripts/run_scan_result_tests.py
 
 ## License
 
-```text
-Copyright 2018 Jenly Yu
-Copyright 2026 Lanlan13-14 (ZXingX modernization fork)
+本仓库（ZXingX）以 **GNU General Public License v3.0** 发布，全文见 [LICENSE](LICENSE)。
 
-Licensed under the Apache License, Version 2.0
+```text
+Copyright (C) 2026 Lanlan13-14
+Copyright (C) 2018 Jenly Yu (upstream ZXingLite portions)
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
 ```
+
+上游 [ZXingLite](https://github.com/jenly1314/ZXingLite) 原以 Apache-2.0 发布；Apache-2.0 与 GPL-3.0 在本方向上可兼容，本 fork 整体按 GPL-3.0 分发。
