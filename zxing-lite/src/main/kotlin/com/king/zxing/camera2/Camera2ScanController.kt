@@ -107,7 +107,7 @@ internal class Camera2ScanController(
                 LogX.i(
                     "Camera2 lenses: %s",
                     lenses.joinToString { lens ->
-                        "${lens.stableId}@${"%.2f".format(java.util.Locale.US, lens.ratio)}x=" +
+                        "${lens.id}@${"%.2f".format(java.util.Locale.US, lens.ratio)}x=" +
                             lens.bindings.joinToString(prefix = "[", postfix = "]") { binding ->
                                 "open:${binding.openCameraId}/physical:${binding.physicalCameraId ?: "-"}"
                             }
@@ -170,7 +170,7 @@ internal class Camera2ScanController(
         val token = ++generation
         LogX.i(
             "Camera2 open attempt: lens=%s ratio=%f open=%s physical=%s",
-            lens.stableId,
+            lens.id,
             lens.ratio,
             binding.openCameraId,
             binding.physicalCameraId ?: "-"
@@ -525,7 +525,7 @@ internal class Camera2ScanController(
                 failedBindingKeys.clear()
                 LogX.i(
                     "Camera2 first frames: lens=%s open=%s physical=%s",
-                    lenses.getOrNull(lastWorkingLensIndex)?.stableId ?: "?",
+                    lenses.getOrNull(lastWorkingLensIndex)?.id ?: "?",
                     currentBinding?.openCameraId ?: "?",
                     currentBinding?.physicalCameraId ?: "-"
                 )
