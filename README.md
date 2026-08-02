@@ -2,10 +2,10 @@
 
 ![Image](app/src/main/ic_launcher-web.png)
 
-[![CI](https://img.shields.io/github/actions/workflow/status/Lanlan13-14/ZXingLite/build.yml?branch=main&logo=github)](https://github.com/Lanlan13-14/ZXingLite/actions/workflows/build.yml)
-[![Release](https://img.shields.io/github/v/release/Lanlan13-14/ZXingLite?logo=github)](https://github.com/Lanlan13-14/ZXingLite/releases)
+[![CI](https://img.shields.io/github/actions/workflow/status/Lanlan13-14/ZXingX/build.yml?branch=main&logo=github)](https://github.com/Lanlan13-14/ZXingX/actions/workflows/build.yml)
+[![Release](https://img.shields.io/github/v/release/Lanlan13-14/ZXingX?logo=github)](https://github.com/Lanlan13-14/ZXingX/releases)
 [![API](https://img.shields.io/badge/API-23%2B-brightgreen?logo=android)](https://developer.android.com/guide/topics/manifest/uses-sdk-element#ApiLevels)
-[![License](https://img.shields.io/github/license/Lanlan13-14/ZXingLite?logo=open-source-initiative)](https://opensource.org/licenses/apache-2-0)
+[![License](https://img.shields.io/github/license/Lanlan13-14/ZXingX?logo=open-source-initiative)](https://opensource.org/licenses/apache-2-0)
 
 **ZXingX** 是基于 [jenly1314/ZXingLite](https://github.com/jenly1314/ZXingLite) 的 **现代化修改版** 示例应用。
 
