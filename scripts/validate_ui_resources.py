@@ -227,24 +227,32 @@ def main() -> int:
     else:
         fail("preview html missing")
 
-    # CI workflows self-contained + versionable release
-    build_wf = ROOT / ".github" / "workflows" / "build.yml"
-    release_wf = ROOT / ".github" / "workflows" / "release.yml"
-    for wf in (build_wf, release_wf):
-        if wf.exists():
-            ok(f"workflow exists {wf.name}")
-        else:
-            fail(f"workflow missing {wf.name}")
-    rtxt = release_wf.read_text(encoding="utf-8") if release_wf.exists() else ""
+    # Single CI workflow: build + versioned release
+    wf_dir = ROOT / ".github" / "workflows"
+    ci_wf = wf_dir / "ci.yml"
+    if ci_wf.exists():
+        ok("workflow exists ci.yml")
+    else:
+        fail("workflow missing ci.yml")
+    extras = [p.name for p in wf_dir.glob("*.yml") if p.name != "ci.yml"]
+    if extras:
+        fail(f"extra workflows present: {extras}")
+    else:
+        ok("only one workflow file (ci.yml)")
+    rtxt = ci_wf.read_text(encoding="utf-8") if ci_wf.exists() else ""
     if 'default: "v1.0.0"' in rtxt or "default: 'v1.0.0'" in rtxt:
         ok("release default version v1.0.0")
     else:
-        fail("release workflow default version is not v1.0.0")
+        fail("release default version is not v1.0.0")
     if "VERSION_NAME=" in rtxt and "VERSION_CODE=" in rtxt and "softprops/action-gh-release" in rtxt:
         ok("release writes version and publishes GitHub Release")
     else:
-        fail("release workflow incomplete")
-    if "jenly1314/actions" in rtxt or "jenly1314/actions" in (build_wf.read_text(encoding="utf-8") if build_wf.exists() else ""):
+        fail("release path incomplete in ci.yml")
+    if "assembleDebug" in rtxt and "workflow_dispatch" in rtxt:
+        ok("ci.yml covers build and manual release")
+    else:
+        fail("ci.yml missing build or dispatch")
+    if "jenly1314/actions" in rtxt:
         fail("workflows still depend on upstream reusable actions")
     else:
         ok("workflows are self-contained")
@@ -318,7 +326,7 @@ def main() -> int:
         fail("README contains emoji")
     else:
         ok("README has no emoji")
-    if "ZXingX-v" in rtxt or "ZXingX-${{" in rtxt:
+    if "ZXingX-" in rtxt and ".apk" in rtxt:
         ok("release APK named ZXingX")
     else:
         fail("release APK name not ZXingX")

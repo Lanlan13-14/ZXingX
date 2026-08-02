@@ -2,63 +2,59 @@
 
 ![Image](app/src/main/ic_launcher-web.png)
 
-[![CI](https://img.shields.io/github/actions/workflow/status/Lanlan13-14/ZXingX/build.yml?branch=main&logo=github)](https://github.com/Lanlan13-14/ZXingX/actions/workflows/build.yml)
+[![CI](https://img.shields.io/github/actions/workflow/status/Lanlan13-14/ZXingX/ci.yml?branch=main&logo=github)](https://github.com/Lanlan13-14/ZXingX/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Lanlan13-14/ZXingX?logo=github)](https://github.com/Lanlan13-14/ZXingX/releases)
 [![API](https://img.shields.io/badge/API-23%2B-brightgreen?logo=android)](https://developer.android.com/guide/topics/manifest/uses-sdk-element#ApiLevels)
 [![License](https://img.shields.io/github/license/Lanlan13-14/ZXingX?logo=gnu)](https://www.gnu.org/licenses/gpl-3.0.html)
 
-**ZXingX** 是基于 [jenly1314/ZXingLite](https://github.com/jenly1314/ZXingLite) 的 **现代化修改版** 示例应用。
+基于 [ZXingLite](https://github.com/jenly1314/ZXingLite) 的现代化扫码应用。
 
-保留上游扫码 / 生成能力，重做 App 视觉与结果页，并提供可写版本号的 GitHub Actions 编译与发布流程。
+在上游扫码与条码生成能力之上，重做了界面与结果展示：独立扫描结果页、浅色/深色主题、统一矢量图标。扫描框支持线条样式与网格样式，可开闪光灯。
 
-当前默认版本：**v1.0.0**  
-应用显示名：**ZXingX**
+默认版本 **v1.0.0**，应用名 **ZXingX**。
 
-## 本版改动
+## 功能
 
-1. **扫描结果页**  
-   识别成功后进入独立页面，不再使用 Toast：
-   - 顶栏：关闭 / 标题「扫描结果」/ 确认
-   - 正文：完整文本（可选中）
-   - 底部：复制、分享；`http(s)` 链接额外提供打开
+- 连续扫码 / 仅二维码 / 全屏识别 / 相册识图
+- 生成二维码、CODE_128 条形码
+- 扫描结果页：关闭 / 确认，复制、分享，链接可打开
+- Material 3 浅色与深色模式（深色正文为柔和灰，减轻刺眼）
+- 闪光灯、可自定义取景框
 
-2. **现代化 UI + 深色模式**  
-   - Material 3 DayNight  
-   - 分组列表、系统蓝强调色、统一 24dp 矢量图标  
-   - 深色模式：正文使用柔和灰（`#D1D1D6`），避免纯白刺眼；图标略亮于正文  
-   - 浅色 / 深色完整 token
+## 界面预览
 
-3. **品牌**  
-   - 应用名：ZXingX  
-   - 启动图标按设计稿（取景框四角 + QR 定位块 + 蓝色扫描线）生成全密度资源
+[preview/ui-preview.html](preview/ui-preview.html)
 
-4. **CI / Release**  
-   - `Build`：自动 `assembleDebug`  
-   - `Release`：手动输入版本号（默认 `v1.0.0`），写入版本后打包并创建 GitHub Release
+## 构建
 
-浏览器预览：[preview/ui-preview.html](preview/ui-preview.html)  
-图标源文件：[design/zxingx_icon.svg](design/zxingx_icon.svg)
-
-## 引入（库）
-
-模块 `zxing-lite` 仍可被依赖。稳定上游坐标示例：
-
-```gradle
-implementation 'com.github.jenly1314:zxing-lite:3.5.0'
+```bash
+./gradlew :app:assembleDebug
+./gradlew :app:assembleRelease
 ```
 
-> v3.4.0+ 要求 **compileSdk >= 35**。
+版本号写在 `gradle.properties`：
 
-## 使用
+```properties
+VERSION_NAME=1.0.0
+VERSION_CODE=1
+```
 
-### 扫描结果页
+重新生成启动图标：
+
+```bash
+python3 scripts/generate_zxingx_icons.py
+```
+
+## 使用说明
+
+### 打开扫描结果页
 
 ```kotlin
 val intent = ScanResultActivity.createIntent(this, resultText)
 startActivity(intent)
 ```
 
-### 扫码 Activity 示例
+### 自定义扫码页
 
 ```kotlin
 class QRCodeScanActivity : BarcodeCameraScanActivity() {
@@ -86,7 +82,7 @@ class QRCodeScanActivity : BarcodeCameraScanActivity() {
 }
 ```
 
-### CodeUtils
+### 生成与解析
 
 ```kotlin
 CodeUtils.createQRCode(content, 600, logo)
@@ -95,95 +91,67 @@ CodeUtils.parseCode(bitmap)
 CodeUtils.parseQRCode(bitmap)
 ```
 
-更多库能力见上游与 [CameraScan](https://github.com/jenly1314/CameraScan)。
+库层细节见上游 [ZXingLite](https://github.com/jenly1314/ZXingLite) 与 [CameraScan](https://github.com/jenly1314/CameraScan)。  
+作为依赖引入上游库时：
 
-## 本地构建
-
-```bash
-./gradlew :app:assembleDebug
-./gradlew :app:assembleRelease
+```gradle
+implementation 'com.github.jenly1314:zxing-lite:3.5.0'
 ```
 
-版本号（`gradle.properties`）：
+`compileSdk` 需 >= 35（v3.4.0+）。
 
-```properties
-VERSION_NAME=1.0.0
-VERSION_CODE=1
-```
+## CI
 
-重新生成启动图标：
+仅保留一份工作流：[`.github/workflows/ci.yml`](.github/workflows/ci.yml)
 
-```bash
-python3 scripts/generate_zxingx_icons.py
-```
+| 触发 | 行为 |
+| --- | --- |
+| `push` / `pull_request` → `main` | 编译 debug APK，上传 artifact |
+| Actions 手动 Run workflow | 按版本号打 release APK，创建 GitHub Release |
 
-Release 默认使用 debug 签名以便 CI 无密钥安装；生产请替换 `app/build.gradle.kts` 中的签名配置。
-
-## GitHub Actions
-
-### Build
-
-`.github/workflows/build.yml` — push / PR 到 `main` 或 `master` 时编译 debug APK。
-
-### Release（可写版本号）
-
-`.github/workflows/release.yml` — Actions 中手动运行：
+手动发布参数：
 
 | 参数 | 说明 | 默认 |
 | --- | --- | --- |
-| `version` | 标签，如 `v1.0.0` 或 `1.0.0` | `v1.0.0` |
-| `release_notes` | 说明（Markdown） | 空 |
-| `prerelease` | 预发布 | `false` |
+| `version` | 如 `v1.0.0` 或 `1.0.0` | `v1.0.0` |
+| `release_notes` | 说明（可选） | 空 |
+| `prerelease` | 是否预发布 | `false` |
 
-流程：规范化版本 → 写入 `VERSION_NAME` / `VERSION_CODE` → `assembleRelease` → GitHub Release，附件 `ZXingX-vX.Y.Z.apk`。
+`versionCode = major * 10000 + minor * 100 + patch`。  
+Release 附件名：`ZXingX-vX.Y.Z.apk`。
 
-`versionCode = major * 10000 + minor * 100 + patch`（`1.2.3` → `10203`）。
+当前 release 使用 debug 签名，便于无密钥 CI 安装；上架请换成正式签名。
 
-## 静态校验
+## 校验脚本
 
 ```bash
 python3 scripts/validate_ui_resources.py
 python3 scripts/run_scan_result_tests.py
 ```
 
-## 相关
+## 相关项目
 
-- 上游：[jenly1314/ZXingLite](https://github.com/jenly1314/ZXingLite)
+- [jenly1314/ZXingLite](https://github.com/jenly1314/ZXingLite)（上游）
 - [CameraScan](https://github.com/jenly1314/CameraScan)
 - [ViewfinderView](https://github.com/jenly1314/ViewfinderView)
 
-## 版本日志
+## 版本
 
-#### v1.0.0
+### v1.0.0
 
-- 产品名 ZXingX；启动图标按设计稿重制
-- 扫描结果独立页；现代化 UI 与深色模式（柔和灰正文）
-- 自包含 Build / Release Actions（默认 `v1.0.0`）
+- 更名 ZXingX，启动图标按设计稿重制
+- 扫描结果独立页；现代化 UI 与深色模式
+- 单一 CI 工作流：自动构建 + 手动发版
 
-#### 上游 v3.5.0
-
-- 见 [CHANGELOG.md](CHANGELOG.md)
+上游变更见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## License
 
-本仓库（ZXingX）以 **GNU General Public License v3.0** 发布，全文见 [LICENSE](LICENSE)。
+GNU General Public License v3.0，见 [LICENSE](LICENSE)。
 
 ```text
 Copyright (C) 2026 Lanlan13-14
 Copyright (C) 2018 Jenly Yu (upstream ZXingLite portions)
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <https://www.gnu.org/licenses/>.
 ```
 
-上游 [ZXingLite](https://github.com/jenly1314/ZXingLite) 原以 Apache-2.0 发布；Apache-2.0 与 GPL-3.0 在本方向上可兼容，本 fork 整体按 GPL-3.0 分发。
+上游 ZXingLite 原为 Apache-2.0；本仓库整体按 GPL-3.0 分发。
