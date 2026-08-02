@@ -22,6 +22,7 @@
 - Android 系统预测性返回（跨 Activity 预览，不使用自制假动画）
 - Material 3 浅色与深色模式（深色正文为柔和灰，减轻刺眼）
 - 闪光灯；预览区双指缩放
+- Android 快捷设置「扫一扫」磁贴：点击直接进入连续扫码
 - **物理多摄**：通过 CameraX `getPhysicalCameraInfos()` + `setPhysicalCameraId()` 获取并绑定超广角 / 主摄 / 长焦；双指缩放跨焦段切换，无额外镜头按钮；不暴露物理镜头的设备回退到普通变焦。
 
 ## 界面预览

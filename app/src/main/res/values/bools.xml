@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- TileService exists from API 24; app minSdk is 23. -->
+    <bool name="enable_quick_scan_tile">false</bool>
+</resources>
