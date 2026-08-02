@@ -88,6 +88,11 @@ internal class Camera2ScanController(
     private var pendingLensIndex: Int? = null
     private var firstFrameTimeout: Runnable? = null
     @Volatile private var activeSurfaceTexture: SurfaceTexture? = null
+    @Volatile private var latestRequestedZoom = 1f
+    private val failedLensIndicesThisGesture = mutableSetOf<Int>()
+    private val zoomRequestRunnable = Runnable {
+        handleZoomRequest(latestRequestedZoom)
+    }
 
     fun start() {
         if (released || started) return
@@ -156,6 +161,8 @@ internal class Camera2ScanController(
         waitingForFirstFrame = false
         firstFrameTimeout?.let(textureView::removeCallbacks)
         firstFrameTimeout = null
+        cameraHandler.removeCallbacks(zoomRequestRunnable)
+        failedLensIndicesThisGesture.clear()
         switchInFlight = false
         pendingLensIndex = null
         removeFrozenFrameImmediately()
@@ -176,6 +183,8 @@ internal class Camera2ScanController(
         waitingForFirstFrame = false
         firstFrameTimeout?.let(textureView::removeCallbacks)
         firstFrameTimeout = null
+        cameraHandler.removeCallbacks(zoomRequestRunnable)
+        failedLensIndicesThisGesture.clear()
         switchInFlight = false
         pendingLensIndex = null
         removeFrozenFrameImmediately()
@@ -400,6 +409,11 @@ internal class Camera2ScanController(
             return
         }
 
+        // Every binding for this target lens failed. Do not reopen it repeatedly
+        // during the same continuous pinch gesture.
+        failedLensIndicesThisGesture += lensIndex
+        pendingLensIndex = null
+
         // Roll back to the last session that actually delivered preview frames.
         if (lastWorkingLensIndex in lenses.indices && lastWorkingBindingIndex >= 0) {
             val last = lenses[lastWorkingLensIndex].bindings.getOrNull(lastWorkingBindingIndex)
@@ -513,12 +527,23 @@ internal class Camera2ScanController(
 
     private inner class ScaleListener : ScaleGestureDetector.SimpleOnScaleGestureListener() {
         override fun onScale(detector: ScaleGestureDetector): Boolean {
-            virtualZoom = (virtualZoom * detector.scaleFactor).coerceIn(
+            if (released || !started || lenses.isEmpty()) return false
+            val factor = detector.scaleFactor
+            if (!factor.isFinite() || factor <= 0f) return false
+            val safeFactor = factor.coerceIn(0.75f, 1.25f)
+            virtualZoom = (virtualZoom * safeFactor).coerceIn(
                 lenses.firstOrNull()?.ratio ?: 0.5f,
                 (lenses.lastOrNull()?.ratio ?: 1f) * maxDigitalZoom()
             )
-            val requestedZoom = virtualZoom
-            cameraHandler.post { handleZoomRequest(requestedZoom) }
+            latestRequestedZoom = virtualZoom
+            // Single-slot dispatch: remove the stale queued zoom and keep only the latest.
+            cameraHandler.removeCallbacks(zoomRequestRunnable)
+            cameraHandler.post(zoomRequestRunnable)
+            return true
+        }
+
+        override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
+            cameraHandler.post { failedLensIndicesThisGesture.clear() }
             return true
         }
     }
@@ -528,6 +553,10 @@ internal class Camera2ScanController(
         virtualZoom = requestedZoom
         val target = selectLensIndex(requestedZoom)
         if (target != lensIndex) {
+            if (target in failedLensIndicesThisGesture) {
+                if (!switchInFlight) updateRepeatingRequest()
+                return
+            }
             if (switchInFlight) {
                 pendingLensIndex = target
             } else {
@@ -539,7 +568,7 @@ internal class Camera2ScanController(
     }
 
     private fun beginLensSwitch(target: Int) {
-        if (target !in lenses.indices || target == lensIndex) return
+        if (target !in lenses.indices || target == lensIndex || target in failedLensIndicesThisGesture) return
         if (switchInFlight) {
             pendingLensIndex = target
             return
@@ -568,7 +597,7 @@ internal class Camera2ScanController(
         switchInFlight = false
         val pending = pendingLensIndex
         pendingLensIndex = null
-        if (pending != null && pending != lensIndex) {
+        if (pending != null && pending != lensIndex && pending !in failedLensIndicesThisGesture) {
             beginLensSwitch(pending)
         } else {
             updateRepeatingRequest()
