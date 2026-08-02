@@ -22,7 +22,9 @@ checks = {
     'ZXing luma decode': 'analyzer.analyze(rotated' in controller,
     'preview transition cover': 'freezeFrame' in controller and 'fadeFrozenFrame' in controller,
     'first preview frame gate': 'onSurfaceTextureUpdated' in controller and 'firstFrameCount >= 2' in controller,
-    'binding fallback': 'tryNextBinding(token' in controller,
+    'binding fallback': 'tryNextBinding(token' in controller and 'lastWorkingLensIndex' in controller,
+    'geometric lens boundary': 'selectLensIndex' in controller and 'sqrt((left * right).toDouble())' in controller,
+    'camera ID diagnostics': 'Camera2 open attempt' in controller and 'Camera2 first frames' in controller,
     'app migrated to camera2': all('Camera2BarcodeScanActivity' in p.read_text() for p in activities),
 }
 

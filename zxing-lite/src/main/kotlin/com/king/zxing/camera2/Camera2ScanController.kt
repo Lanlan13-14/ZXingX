@@ -104,6 +104,15 @@ internal class Camera2ScanController(
                 discovering = false
                 if (released || !started) return@post
                 lenses = discovered
+                LogX.i(
+                    "Camera2 lenses: %s",
+                    lenses.joinToString { lens ->
+                        "${lens.stableId}@${"%.2f".format(java.util.Locale.US, lens.ratio)}x=" +
+                            lens.bindings.joinToString(prefix = "[", postfix = "]") { binding ->
+                                "open:${binding.openCameraId}/physical:${binding.physicalCameraId ?: "-"}"
+                            }
+                    }
+                )
                 lensIndex = lenses.indices.minByOrNull { abs(lenses[it].ratio - 1f) } ?: -1
                 if (lensIndex < 0) {
                     LogX.e("Camera2: no usable back lens")
@@ -159,6 +168,13 @@ internal class Camera2ScanController(
         attemptLensIndex = lensIndex
         attemptBindingIndex = bindingIndex
         val token = ++generation
+        LogX.i(
+            "Camera2 open attempt: lens=%s ratio=%f open=%s physical=%s",
+            lens.stableId,
+            lens.ratio,
+            binding.openCameraId,
+            binding.physicalCameraId ?: "-"
+        )
         freezeFrame()
         closeSessionAndReader()
         val existing = camera
@@ -430,8 +446,7 @@ internal class Camera2ScanController(
                 lenses.firstOrNull()?.ratio ?: 0.5f,
                 (lenses.lastOrNull()?.ratio ?: 1f) * maxDigitalZoom()
             )
-            val target = lenses.indices.lastOrNull { lenses[it].ratio <= virtualZoom * 1.05f }
-                ?: 0
+            val target = selectLensIndex(virtualZoom)
             if (target != lensIndex) {
                 failedBindingKeys.clear()
                 lensIndex = target
@@ -440,6 +455,20 @@ internal class Camera2ScanController(
             } else updateRepeatingRequest()
             return true
         }
+    }
+
+    private fun selectLensIndex(zoom: Float): Int {
+        if (lenses.size <= 1) return 0
+        var selected = 0
+        for (index in 0 until lenses.lastIndex) {
+            val left = lenses[index].ratio.coerceAtLeast(0.01f)
+            val right = lenses[index + 1].ratio.coerceAtLeast(left)
+            // Geometric midpoint is stable for optical ratios (0.5↔1 => 0.707,
+            // 1↔3.2 => 1.789) and avoids switching tele immediately after 1x.
+            val boundary = kotlin.math.sqrt((left * right).toDouble()).toFloat()
+            if (zoom >= boundary) selected = index + 1 else break
+        }
+        return selected
     }
 
     private fun updateRepeatingRequest() {
@@ -494,6 +523,12 @@ internal class Camera2ScanController(
                 lastWorkingLensIndex = attemptLensIndex
                 lastWorkingBindingIndex = attemptBindingIndex
                 failedBindingKeys.clear()
+                LogX.i(
+                    "Camera2 first frames: lens=%s open=%s physical=%s",
+                    lenses.getOrNull(lastWorkingLensIndex)?.stableId ?: "?",
+                    currentBinding?.openCameraId ?: "?",
+                    currentBinding?.physicalCameraId ?: "-"
+                )
                 fadeFrozenFrame()
             }
         }
