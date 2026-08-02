@@ -5,12 +5,11 @@ import android.content.Intent
 import com.google.zxing.Result
 import com.king.camera.scan.AnalyzeResult
 import com.king.camera.scan.CameraScan
-import com.king.camera.scan.analyze.Analyzer
 import com.king.camera.scan.util.PointUtils
 import com.king.view.viewfinderview.ViewfinderView.ViewfinderStyle
 import com.king.zxing.DecodeConfig
 import com.king.zxing.DecodeFormatManager
-import com.king.zxing.BarcodeCameraScanActivity
+import com.king.zxing.Camera2BarcodeScanActivity
 import com.king.zxing.analyze.QRCodeAnalyzer
 
 /**
@@ -20,7 +19,7 @@ import com.king.zxing.analyze.QRCodeAnalyzer
  * <p>
  * <a href="https://github.com/jenly1314">Follow me</a>
  */
-class FullScreenQRCodeScanActivity : BarcodeCameraScanActivity() {
+class FullScreenQRCodeScanActivity : Camera2BarcodeScanActivity() {
 
     override fun initUI() {
         super.initUI()
@@ -31,13 +30,7 @@ class FullScreenQRCodeScanActivity : BarcodeCameraScanActivity() {
     }
 
 
-    override fun initCameraScan(cameraScan: CameraScan<Result>) {
-        super.initCameraScan(cameraScan)
-        // 根据需要设置CameraScan相关配置
-        cameraScan.setPlayBeep(true)
-    }
-
-    override fun createAnalyzer(): Analyzer<Result>? {
+    override fun createAnalyzer(): com.king.zxing.analyze.ImageAnalyzer {
         // 初始化解码配置
         val decodeConfig = DecodeConfig()
             .setHints(DecodeFormatManager.QR_CODE_HINTS)
@@ -55,9 +48,8 @@ class FullScreenQRCodeScanActivity : BarcodeCameraScanActivity() {
         return super.getLayoutId()
     }
 
-    override fun onScanResultCallback(result: AnalyzeResult<Result>) {
-        // 停止分析
-        cameraScan.setAnalyzeImage(false)
+    override fun onScanResult(result: AnalyzeResult<Result>) {
+        setAnalyzeImage(false)
         // 显示结果点
         displayResultPoint(result)
 

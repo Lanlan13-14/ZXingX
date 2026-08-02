@@ -3,9 +3,7 @@ package com.king.zxing.app
 import androidx.activity.result.contract.ActivityResultContracts
 import com.google.zxing.Result
 import com.king.camera.scan.AnalyzeResult
-import com.king.camera.scan.CameraScan
-import com.king.camera.scan.analyze.Analyzer
-import com.king.zxing.BarcodeCameraScanActivity
+import com.king.zxing.Camera2BarcodeScanActivity
 import com.king.zxing.DecodeConfig
 import com.king.zxing.analyze.MultiFormatAnalyzer
 
@@ -18,33 +16,23 @@ import com.king.zxing.analyze.MultiFormatAnalyzer
  * <p>
  * <a href="https://github.com/jenly1314">Follow me</a>
  */
-class MultiFormatScanActivity : BarcodeCameraScanActivity() {
+class MultiFormatScanActivity : Camera2BarcodeScanActivity() {
 
     private val resultLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) {
-        // 结果页关闭后继续扫码
-        cameraScan.setAnalyzeImage(true)
+        setAnalyzeImage(true)
     }
 
-    override fun initCameraScan(cameraScan: CameraScan<Result>) {
-        super.initCameraScan(cameraScan)
-        cameraScan.setPlayBeep(true)
-    }
-
-    override fun createAnalyzer(): Analyzer<Result>? {
+    override fun createAnalyzer(): com.king.zxing.analyze.ImageAnalyzer {
         val decodeConfig = DecodeConfig()
             .setSupportVerticalCode(true)
             .setSupportLuminanceInvert(true)
         return MultiFormatAnalyzer(decodeConfig)
     }
 
-    override fun getLayoutId(): Int {
-        return super.getLayoutId()
-    }
-
-    override fun onScanResultCallback(result: AnalyzeResult<Result>) {
-        cameraScan.setAnalyzeImage(false)
+    override fun onScanResult(result: AnalyzeResult<Result>) {
+        setAnalyzeImage(false)
         val intent = ScanResultActivity.createIntent(this, result.result.text)
         resultLauncher.launch(intent)
     }

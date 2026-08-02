@@ -3,9 +3,7 @@ package com.king.zxing.app
 import android.content.Intent
 import com.google.zxing.Result
 import com.king.camera.scan.AnalyzeResult
-import com.king.camera.scan.CameraScan
-import com.king.camera.scan.analyze.Analyzer
-import com.king.zxing.BarcodeCameraScanActivity
+import com.king.zxing.Camera2BarcodeScanActivity
 import com.king.zxing.DecodeConfig
 import com.king.zxing.DecodeFormatManager
 import com.king.zxing.analyze.MultiFormatAnalyzer
@@ -18,15 +16,9 @@ import com.king.zxing.analyze.MultiFormatAnalyzer
  * <p>
  * <a href="https://github.com/jenly1314">Follow me</a>
  */
-class QRCodeScanActivity : BarcodeCameraScanActivity() {
+class QRCodeScanActivity : Camera2BarcodeScanActivity() {
 
-    override fun initCameraScan(cameraScan: CameraScan<Result>) {
-        super.initCameraScan(cameraScan)
-        // 根据需要设置CameraScan相关配置
-        cameraScan.setPlayBeep(true)
-    }
-
-    override fun createAnalyzer(): Analyzer<Result>? {
+    override fun createAnalyzer(): com.king.zxing.analyze.ImageAnalyzer {
         //初始化解码配置
         val decodeConfig = DecodeConfig()
         decodeConfig.setHints(DecodeFormatManager.QR_CODE_HINTS) // 如果只有识别二维码的需求，这样设置效率会更高，不设置默认为DecodeFormatManager.DEFAULT_HINTS
@@ -48,12 +40,10 @@ class QRCodeScanActivity : BarcodeCameraScanActivity() {
         return R.layout.activity_qrcode_scan
     }
 
-    override fun onScanResultCallback(result: AnalyzeResult<Result>) {
-        // 停止分析
-        cameraScan.setAnalyzeImage(false)
-        // 返回结果
+    override fun onScanResult(result: AnalyzeResult<Result>) {
+        setAnalyzeImage(false)
         val intent = Intent()
-        intent.putExtra(CameraScan.SCAN_RESULT, result.result.text)
+        intent.putExtra(com.king.camera.scan.CameraScan.SCAN_RESULT, result.result.text)
         setResult(RESULT_OK, intent)
         finish()
     }
