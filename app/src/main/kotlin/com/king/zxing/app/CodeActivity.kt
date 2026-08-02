@@ -1,17 +1,8 @@
 /*
  * Copyright (C) 2018 Jenly Yu
+ * Copyright (C) 2026 Lanlan13-14
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Licensed under the GNU General Public License, Version 3.
  */
 package com.king.zxing.app
 
@@ -29,16 +20,16 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * 生成条形码/二维码示例
+ * 生成二维码 / 条形码演示页。
  *
- * @author <a href="mailto:jenly1314@gmail.com">Jenly</a>
- * <p>
- * <a href="https://github.com/jenly1314">Follow me</a>
+ * 展示库的「编码」能力：把字符串画成可扫描的图。
+ * 二维码中心使用 ZXingX logo，而不是上游 Lite 标识。
  */
 class CodeActivity : AppCompatActivity() {
 
     private lateinit var tvTitle: TextView
     private lateinit var tvBarcodeFormat: TextView
+    private lateinit var tvContent: TextView
     private lateinit var ivCode: ImageView
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,21 +38,27 @@ class CodeActivity : AppCompatActivity() {
         ivCode = findViewById(R.id.ivCode)
         tvTitle = findViewById(R.id.tvTitle)
         tvBarcodeFormat = findViewById(R.id.tvBarcodeFormat)
+        tvContent = findViewById(R.id.tvContent)
         tvTitle.text = intent.getStringExtra(MainActivity.KEY_TITLE)
         val isQRCode = intent.getBooleanExtra(MainActivity.KEY_IS_QR_CODE, false)
 
         if (isQRCode) {
+            val content = getString(R.string.generate_sample_qr_content)
             tvBarcodeFormat.text = getString(R.string.generate_format_qr)
-            createQRCode(getString(R.string.app_name))
+            tvContent.text = content
+            createQRCode(content)
         } else {
+            val content = getString(R.string.generate_sample_barcode_content)
             tvBarcodeFormat.text = getString(R.string.generate_format_code128)
-            createBarCode("1234567890")
+            tvContent.text = content
+            createBarCode(content)
         }
     }
 
     private fun createQRCode(content: String) {
         lifecycleScope.launch {
             val bitmap = withContext(Dispatchers.IO) {
+                // Center logo is ZXingX branding (app/src/main/res/drawable-xxhdpi/logo.png)
                 val logo = BitmapFactory.decodeResource(resources, R.drawable.logo)
                 CodeUtils.createQRCode(content, 600, logo)
             }

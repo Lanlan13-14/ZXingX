@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -23,41 +24,86 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/toolbar" />
 
-    <LinearLayout
-        android:id="@+id/codeCard"
+    <androidx.core.widget.NestedScrollView
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="@dimen/space_24"
-        android:layout_marginEnd="@dimen/space_24"
-        android:background="@drawable/bg_surface_card"
-        android:gravity="center_horizontal"
-        android:orientation="vertical"
-        android:padding="@dimen/space_24"
+        android:layout_height="0dp"
+        android:clipToPadding="false"
+        android:fillViewport="true"
+        android:overScrollMode="never"
+        android:paddingStart="@dimen/space_20"
+        android:paddingTop="@dimen/space_20"
+        android:paddingEnd="@dimen/space_20"
+        android:paddingBottom="@dimen/space_32"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/toolbarDivider"
-        app:layout_constraintVertical_bias="0.35">
+        app:layout_constraintTop_toBottomOf="@id/toolbarDivider">
 
-        <TextView
-            android:id="@+id/tvBarcodeFormat"
-            style="@style/TextAppearance.App.Caption"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@drawable/bg_type_chip"
-            android:paddingStart="@dimen/space_12"
-            android:paddingTop="@dimen/space_4"
-            android:paddingEnd="@dimen/space_12"
-            android:paddingBottom="@dimen/space_4" />
+            android:orientation="vertical">
 
-        <ImageView
-            android:id="@+id/ivCode"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/space_24"
-            android:adjustViewBounds="true"
-            android:contentDescription="@null"
-            android:maxWidth="280dp"
-            android:maxHeight="280dp" />
-    </LinearLayout>
+            <TextView
+                android:id="@+id/tvHint"
+                style="@style/TextAppearance.App.Caption"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:lineSpacingMultiplier="1.35"
+                android:text="@string/generate_hint"
+                android:textSize="@dimen/size_15sp" />
+
+            <LinearLayout
+                android:id="@+id/codeCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/space_16"
+                android:background="@drawable/bg_surface_card"
+                android:gravity="center_horizontal"
+                android:orientation="vertical"
+                android:padding="@dimen/space_24">
+
+                <TextView
+                    android:id="@+id/tvBarcodeFormat"
+                    style="@style/TextAppearance.App.Caption"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_type_chip"
+                    android:paddingStart="@dimen/space_12"
+                    android:paddingTop="@dimen/space_4"
+                    android:paddingEnd="@dimen/space_12"
+                    android:paddingBottom="@dimen/space_4"
+                    tools:text="二维码" />
+
+                <ImageView
+                    android:id="@+id/ivCode"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/space_20"
+                    android:adjustViewBounds="true"
+                    android:contentDescription="@null"
+                    android:maxWidth="280dp"
+                    android:maxHeight="280dp" />
+
+                <TextView
+                    android:id="@+id/tvContentLabel"
+                    style="@style/TextAppearance.App.Caption"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/space_20"
+                    android:text="@string/generate_content_label" />
+
+                <TextView
+                    android:id="@+id/tvContent"
+                    style="@style/TextAppearance.App.Body"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/space_8"
+                    android:background="@drawable/bg_type_chip"
+                    android:padding="@dimen/space_12"
+                    android:textIsSelectable="true"
+                    tools:text="https://github.com/Lanlan13-14/ZXingX" />
+            </LinearLayout>
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
 </androidx.constraintlayout.widget.ConstraintLayout>
