@@ -84,8 +84,39 @@ class EdgeSwipeBackController private constructor(
         return this
     }
 
+    /** Commit an edge/predictive gesture using the rounded-card trajectory. */
     fun requestBack() {
         if (!finishing) commit()
+    }
+
+    /** Top toolbar back: a plain horizontal slide-out; never predictive/card-shaped. */
+    fun requestToolbarBack() {
+        if (finishing) return
+        finishing = true
+        animator?.cancel()
+        backCallback.isEnabled = false
+        surface.clipToOutline = false
+        cornerRadius = 0f
+        surface.invalidateOutline()
+        val startX = surface.translationX
+        ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 260L
+            interpolator = PathInterpolator(0.32f, 0.72f, 0f, 1f)
+            addUpdateListener {
+                val p = it.animatedValue as Float
+                surface.translationX = startX + (surface.width.toFloat() - startX) * p
+                surface.translationY = 0f
+                surface.scaleX = 1f
+                surface.scaleY = 1f
+                surface.alpha = 1f
+            }
+            addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: android.animation.Animator) {
+                    finishImmediately()
+                }
+            })
+            start()
+        }
     }
 
     private fun animateEnter() {
@@ -139,19 +170,52 @@ class EdgeSwipeBackController private constructor(
             begin()
             progress = 0f
         }
-        animateTo(1f, true)
+        // The system gesture normally commits near progress=1. Continue immediately
+        // instead of inserting an extra settle that feels like a pause/disappearance.
+        if (progress >= 0.88f) animateGestureExit() else animateTo(1f, true)
     }
 
     private fun animateTo(target: Float, finishAtEnd: Boolean) {
         animator?.cancel()
         val start = progress
         animator = ValueAnimator.ofFloat(start, target).apply {
-            duration = (150L + 90L * abs(target - start)).toLong()
+            duration = (140L + 110L * abs(target - start)).toLong()
             interpolator = settle
             addUpdateListener { apply(it.animatedValue as Float) }
             addListener(object : android.animation.AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: android.animation.Animator) {
-                    if (finishAtEnd) finishImmediately() else reset()
+                    if (finishAtEnd) animateGestureExit() else reset()
+                }
+            })
+            start()
+        }
+    }
+
+    /**
+     * The gesture preview ends at a rounded 92.5% card. Continue from that exact
+     * visual state to a full off-screen exit before finishing the Activity.
+     */
+    private fun animateGestureExit() {
+        if (finishing) return
+        finishing = true
+        backCallback.isEnabled = false
+        val startX = surface.translationX
+        val startScale = surface.scaleX
+        val startRadius = cornerRadius
+        animator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 240L
+            interpolator = PathInterpolator(0.32f, 0.72f, 0f, 1f)
+            addUpdateListener {
+                val p = it.animatedValue as Float
+                surface.translationX = startX + direction * surface.width * 0.96f * p
+                surface.scaleX = startScale + (0.985f - startScale) * p
+                surface.scaleY = surface.scaleX
+                cornerRadius = startRadius * (1f - p)
+                surface.invalidateOutline()
+            }
+            addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: android.animation.Animator) {
+                    finishImmediately()
                 }
             })
             start()
@@ -159,8 +223,6 @@ class EdgeSwipeBackController private constructor(
     }
 
     private fun finishImmediately() {
-        if (finishing) return
-        finishing = true
         backCallback.isEnabled = false
         activity.finish()
         activity.overridePendingTransition(0, 0)

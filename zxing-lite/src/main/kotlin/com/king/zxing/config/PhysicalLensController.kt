@@ -1,15 +1,21 @@
 package com.king.zxing.config
 
 import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraManager
+import android.hardware.camera2.CameraMetadata
+import android.os.Build
 import android.util.SizeF
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
+import android.view.ViewGroup
+import android.widget.ImageView
 import androidx.camera.camera2.interop.Camera2CameraInfo
 import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.CameraInfo
 import androidx.camera.core.CameraSelector
 import androidx.camera.view.PreviewView
 import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.Observer
 import com.king.camera.scan.CameraScan
 import com.king.logx.LogX
 import kotlin.math.max
@@ -36,6 +42,9 @@ class PhysicalLensController<T>(
     private var switchGeneration = 0
     private var fallbackZoomOnly = false
     private var initialized = false
+    private var frozenPreview: ImageView? = null
+    private var waitingForNewStream = false
+    private var streamWentIdle = false
 
     private val scaleDetector = ScaleGestureDetector(
         previewView.context,
@@ -118,6 +127,43 @@ class PhysicalLensController<T>(
             }
         }
 
+        // PhotonCamera-style Camera2 discovery: public camera IDs + physical children
+        // advertised by every logical camera. CameraX then performs the actual binding.
+        val cameraManager = previewView.context.getSystemService(CameraManager::class.java)
+        val publicIds = runCatching { cameraManager?.cameraIdList?.toSet().orEmpty() }
+            .getOrDefault(emptySet())
+        publicIds.forEach { id ->
+            val chars = runCatching { cameraManager?.getCameraCharacteristics(id) }.getOrNull()
+                ?: return@forEach
+            val facing = chars.get(CameraCharacteristics.LENS_FACING)
+            if (facing != CameraCharacteristics.LENS_FACING_BACK) return@forEach
+            val score = opticalScore(chars) ?: return@forEach
+            val capabilities = chars.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES).orEmpty()
+            val isLogical = capabilities.contains(
+                CameraMetadata.REQUEST_AVAILABLE_CAPABILITIES_LOGICAL_MULTI_CAMERA
+            )
+            if (!isLogical) {
+                mergeRaw(raw, "lens:$id", score, CameraBinding.Exact(id))
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && isLogical) {
+                chars.physicalCameraIds.forEach { physicalId ->
+                    val physical = runCatching {
+                        cameraManager?.getCameraCharacteristics(physicalId)
+                    }.getOrNull() ?: return@forEach
+                    val physicalScore = opticalScore(physical) ?: return@forEach
+                    mergeRaw(
+                        raw,
+                        "lens:$physicalId",
+                        physicalScore,
+                        CameraBinding.Physical(id, physicalId)
+                    )
+                    if (physicalId in publicIds) {
+                        mergeRaw(raw, "lens:$physicalId", physicalScore, CameraBinding.Exact(physicalId))
+                    }
+                }
+            }
+        }
+
         val mainScore = opticalScore(activeLogicalInfo)
         lenses = PhysicalLensStrategy.normalized(raw, mainScore)
         fallbackZoomOnly = lenses.size < 2
@@ -173,6 +219,7 @@ class PhysicalLensController<T>(
         val generation = switchGeneration
         val previousCamera = cameraScan.getCamera()
         val restoreTorch = cameraScan.isTorchEnabled()
+        freezeCurrentPreview()
         cameraScan.setCameraConfig(configFactory(binding))
         cameraScan.startCamera()
         awaitRebind(
@@ -224,6 +271,7 @@ class PhysicalLensController<T>(
         pendingCandidate = null
         cameraScan.zoomTo(localZoom)
         if (restoreTorch && cameraScan.hasFlashUnit()) cameraScan.enableTorch(true)
+        fadeFrozenPreviewWhenStreaming()
         LogX.d(
             "CameraX lens bound: %s virtual=%f local=%f",
             binding,
@@ -235,9 +283,74 @@ class PhysicalLensController<T>(
     private fun fallbackToLogical(localZoom: Float) {
         currentBinding = null
         pendingCandidate = null
+        freezeCurrentPreview()
         cameraScan.setCameraConfig(configFactory(null))
         cameraScan.startCamera()
-        previewView.postDelayed({ cameraScan.zoomTo(max(1f, localZoom)) }, 300L)
+        previewView.postDelayed({
+            cameraScan.zoomTo(max(1f, localZoom))
+            fadeFrozenPreviewWhenStreaming()
+        }, 300L)
+    }
+
+    /** Keep the last TextureView frame visible while CameraX creates the next session. */
+    private fun freezeCurrentPreview() {
+        val bitmap = previewView.bitmap ?: return
+        val parent = previewView.parent as? ViewGroup ?: return
+        frozenPreview?.let { old ->
+            (old.parent as? ViewGroup)?.removeView(old)
+        }
+        val overlay = ImageView(previewView.context).apply {
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            setImageBitmap(bitmap)
+            alpha = 1f
+            isClickable = false
+            importantForAccessibility = android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        }
+        val index = parent.indexOfChild(previewView)
+        parent.addView(
+            overlay,
+            index + 1,
+            ViewGroup.LayoutParams(previewView.width, previewView.height)
+        )
+        frozenPreview = overlay
+        waitingForNewStream = true
+        streamWentIdle = false
+    }
+
+    private fun fadeFrozenPreviewWhenStreaming() {
+        if (!waitingForNewStream) return
+        val state = previewView.previewStreamState
+        val observer = object : Observer<PreviewView.StreamState> {
+            override fun onChanged(value: PreviewView.StreamState) {
+                if (value == PreviewView.StreamState.IDLE) {
+                    streamWentIdle = true
+                    return
+                }
+                if (value != PreviewView.StreamState.STREAMING || !streamWentIdle) return
+                state.removeObserver(this)
+                waitingForNewStream = false
+                frozenPreview?.animate()
+                    ?.alpha(0f)
+                    ?.setDuration(160L)
+                    ?.withEndAction {
+                        frozenPreview?.let { view ->
+                            (view.parent as? ViewGroup)?.removeView(view)
+                            (view.drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap?.recycle()
+                        }
+                        frozenPreview = null
+                    }
+                    ?.start()
+            }
+        }
+        state.observe(lifecycleOwner, observer)
+        previewView.postDelayed({
+            if (waitingForNewStream && previewView.previewStreamState.value == PreviewView.StreamState.STREAMING) {
+                // Some OEMs coalesce LiveData and omit IDLE. Treat a stable 1.2s STREAMING
+                // state as the new session rather than leaving the frozen frame forever.
+                streamWentIdle = true
+                observer.onChanged(PreviewView.StreamState.STREAMING)
+            }
+        }, 1200L)
     }
 
     private fun handleTapToFocus(event: MotionEvent) {
@@ -264,6 +377,21 @@ class PhysicalLensController<T>(
         return max(1f, max(digitalMax, opticalMax * 4f))
     }
 
+    private fun mergeRaw(
+        raw: MutableList<Triple<String, Float, List<CameraBinding>>>,
+        stableId: String,
+        score: Float,
+        binding: CameraBinding
+    ) {
+        val index = raw.indexOfFirst { it.first == stableId }
+        if (index < 0) {
+            raw += Triple(stableId, score, listOf(binding))
+        } else {
+            val old = raw[index]
+            raw[index] = Triple(old.first, old.second, (old.third + binding).distinct())
+        }
+    }
+
     @OptIn(ExperimentalCamera2Interop::class)
     private fun cameraId(info: CameraInfo): String? = runCatching {
         Camera2CameraInfo.from(info).cameraId
@@ -279,6 +407,21 @@ class PhysicalLensController<T>(
         val sensor = camera2.getCameraCharacteristic(CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE)
         focal / horizontalSensorWidth(sensor)
     }.getOrNull()
+
+    /** PhotonCamera-equivalent 35mm focal score from public Camera2 metadata. */
+    private fun opticalScore(characteristics: CameraCharacteristics): Float? {
+        val focal = characteristics.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS)
+            ?.filter { it > 0f }
+            ?.minOrNull()
+            ?: return null
+        val sensor = characteristics.get(CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE)
+            ?: return null
+        val diagonal = kotlin.math.sqrt(
+            (sensor.width * sensor.width + sensor.height * sensor.height).toDouble()
+        ).toFloat()
+        if (diagonal <= 0f || !diagonal.isFinite()) return null
+        return focal * 43.2666f / diagonal
+    }
 
     private fun horizontalSensorWidth(size: SizeF?): Float {
         val width = size?.width ?: 0f

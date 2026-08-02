@@ -57,7 +57,7 @@ class ScanResultActivity : AppCompatActivity() {
         }
         btnOpen.isVisible = isUrl
 
-        btnClose.setOnClickListener { swipeBack.requestBack() }
+        btnClose.setOnClickListener { swipeBack.requestToolbarBack() }
         btnConfirm.setOnClickListener { finishWithOk() }
         btnCopy.setOnClickListener { copyResult() }
         btnShare.setOnClickListener { shareResult() }
