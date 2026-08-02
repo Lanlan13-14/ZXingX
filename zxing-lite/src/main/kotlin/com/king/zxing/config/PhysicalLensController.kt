@@ -138,7 +138,8 @@ class PhysicalLensController<T>(
             val facing = chars.get(CameraCharacteristics.LENS_FACING)
             if (facing != CameraCharacteristics.LENS_FACING_BACK) return@forEach
             val score = opticalScore(chars) ?: return@forEach
-            val capabilities = chars.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES).orEmpty()
+            val capabilities = chars.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES)
+                ?: intArrayOf()
             val isLogical = capabilities.contains(
                 CameraMetadata.REQUEST_AVAILABLE_CAPABILITIES_LOGICAL_MULTI_CAMERA
             )
