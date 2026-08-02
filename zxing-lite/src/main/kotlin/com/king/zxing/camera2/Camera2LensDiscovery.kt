@@ -38,9 +38,25 @@ internal class Camera2LensDiscovery(
         val publicSet = publicIds.toSet()
         val logicalBindings = discoverLogicalBindings(publicIds, publicSet)
         val allIds = (publicIds + logicalBindings.keys + probeHiddenIds(publicSet)).distinct()
-        val default35mm = publicIds.firstNotNullOfOrNull { id ->
-            characteristics(id)?.takeIf(::isBack)?.let(::focal35mm)?.takeIf { it > 0f }
-        } ?: 1f
+        val publicRear = publicIds.mapNotNull { id ->
+            characteristics(id)?.takeIf(::isBack)?.let { id to it }
+        }
+        // PhotonCamera uses a reference main camera (typically camera ID 0) for
+        // intrinsic zoom. Prefer ID 0, then a logical rear camera, then the
+        // conventional ~4.5 mm phone main focal. Never trust list ordering.
+        val reference = publicRear.firstOrNull { it.first == "0" }
+            ?: publicRear.firstOrNull { (_, chars) -> isLogical(chars) }
+            ?: publicRear.minByOrNull { (_, chars) ->
+                val focal = chars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS)
+                    ?.filter { it > 0f }
+                    ?.minOrNull()
+                    ?: Float.MAX_VALUE
+                kotlin.math.abs(focal - 4.5f)
+            }
+        val default35mm = reference?.second?.let(::focal35mm)?.takeIf { it > 0f }
+            ?: publicRear.map { focal35mm(it.second) }.filter { it > 0f }.sorted().let { values ->
+                values.getOrNull(values.size / 2) ?: 24f
+            }
 
         val raw = mutableListOf<Lens>()
         allIds.forEach { id ->
@@ -118,6 +134,14 @@ internal class Camera2LensDiscovery(
 
     private fun isBack(chars: CameraCharacteristics): Boolean =
         chars.get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_BACK
+
+    private fun isLogical(chars: CameraCharacteristics): Boolean {
+        val capabilities = chars.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES)
+            ?: intArrayOf()
+        return capabilities.contains(
+            CameraMetadata.REQUEST_AVAILABLE_CAPABILITIES_LOGICAL_MULTI_CAMERA
+        )
+    }
 
     private fun characteristics(id: String): CameraCharacteristics? = runCatching {
         cameraManager.getCameraCharacteristics(id)
