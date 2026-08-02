@@ -106,17 +106,37 @@ internal class Camera2LensDiscovery(
     }
 
     private fun probeHiddenIds(publicIds: Set<String>): List<String> {
-        // Bounded generic probing used by camera apps: no vendor checks, no OEM-only IDs.
-        val candidates = (0..63).map(Int::toString).filterNot(publicIds::contains)
-        return candidates.filter { id ->
-            val chars = characteristics(id) ?: return@filter false
-            if (!isBack(chars)) return@filter false
-            val capabilities = chars.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES)
-                ?: return@filter false
-            capabilities.contains(
-                CameraMetadata.REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE
-            ) && supportsPreviewAndAnalysis(chars) && canOpenDirectly(id)
+        // Vendor-neutral bounded ranges seen across Android camera providers.
+        // This is intentionally not 0..999 brute force: excessive probing can stall HALs.
+        val ranges = listOf(0..9, 20..29, 40..49, 80..89, 100..119)
+        val found = mutableListOf<String>()
+        for (range in ranges) {
+            var sawCandidate = false
+            var consecutiveMisses = 0
+            for (number in range) {
+                val id = number.toString()
+                if (id in publicIds) {
+                    sawCandidate = true
+                    consecutiveMisses = 0
+                    continue
+                }
+                val chars = characteristics(id)
+                val usable = chars != null && isBack(chars) &&
+                    (chars.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES)
+                        ?: intArrayOf()).contains(
+                        CameraMetadata.REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE
+                    ) && supportsPreviewAndAnalysis(chars) && canOpenDirectly(id)
+                if (usable) {
+                    found += id
+                    sawCandidate = true
+                    consecutiveMisses = 0
+                } else {
+                    consecutiveMisses++
+                    if (sawCandidate && consecutiveMisses >= 6) break
+                }
+            }
         }
+        return found
     }
 
     private fun supportsPreviewAndAnalysis(chars: CameraCharacteristics): Boolean {

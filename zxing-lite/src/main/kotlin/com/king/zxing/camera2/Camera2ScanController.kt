@@ -60,6 +60,11 @@ internal class Camera2ScanController(
     private var bindingIndex = 0
     private var virtualZoom = 1f
     private var currentBinding: Camera2LensDiscovery.Binding? = null
+    private var attemptLensIndex = -1
+    private var attemptBindingIndex = -1
+    private var lastWorkingLensIndex = -1
+    private var lastWorkingBindingIndex = -1
+    private val failedBindingKeys = mutableSetOf<String>()
     private var camera: CameraDevice? = null
     private var session: CameraCaptureSession? = null
     private var reader: ImageReader? = null
@@ -151,6 +156,8 @@ internal class Camera2ScanController(
         val lens = lenses[lensIndex]
         if (bindingIndex !in lens.bindings.indices) bindingIndex = 0
         val binding = lens.bindings[bindingIndex]
+        attemptLensIndex = lensIndex
+        attemptBindingIndex = bindingIndex
         val token = ++generation
         freezeFrame()
         closeSessionAndReader()
@@ -170,10 +177,14 @@ internal class Camera2ScanController(
                 createSession(device, binding, token)
             }
             override fun onDisconnected(device: CameraDevice) {
-                device.close(); tryNextBinding(token, "disconnected")
+                device.close()
+                if (camera === device) camera = null
+                tryNextBinding(token, "disconnected")
             }
             override fun onError(device: CameraDevice, error: Int) {
-                device.close(); tryNextBinding(token, "open error=$error")
+                device.close()
+                if (camera === device) camera = null
+                tryNextBinding(token, "open error=$error")
             }
         }, cameraHandler)
     }
@@ -291,16 +302,51 @@ internal class Camera2ScanController(
 
     private fun tryNextBinding(token: Int, reason: String) {
         if (released || token != generation) return
-        LogX.w("Camera2 binding failed: %s", reason)
+        val failed = currentBinding
+        failed?.let { failedBindingKeys += bindingKey(it) }
+        LogX.w("Camera2 binding failed: %s; binding=%s", reason, failed)
+        closeSessionAndReader()
+        camera?.close()
+        camera = null
+
         val bindings = lenses.getOrNull(lensIndex)?.bindings.orEmpty()
-        if (++bindingIndex < bindings.size) {
-            openSelectedLens()
-        } else {
-            bindingIndex = 0
-            val main = lenses.indices.minByOrNull { abs(lenses[it].ratio - 1f) }
-            if (main != null && main != lensIndex) { lensIndex = main; openSelectedLens() }
+        val next = (bindingIndex + 1 until bindings.size).firstOrNull { index ->
+            bindingKey(bindings[index]) !in failedBindingKeys
         }
+        if (next != null) {
+            bindingIndex = next
+            openSelectedLens()
+            return
+        }
+
+        // Roll back to the last session that actually delivered preview frames.
+        if (lastWorkingLensIndex in lenses.indices && lastWorkingBindingIndex >= 0) {
+            val last = lenses[lastWorkingLensIndex].bindings.getOrNull(lastWorkingBindingIndex)
+            if (last != null && bindingKey(last) !in failedBindingKeys) {
+                lensIndex = lastWorkingLensIndex
+                bindingIndex = lastWorkingBindingIndex
+                openSelectedLens()
+                return
+            }
+        }
+
+        // Initial startup fallback: use the closest-to-1x lens and its first unfailed binding.
+        val mains = lenses.indices.sortedBy { abs(lenses[it].ratio - 1f) }
+        for (main in mains) {
+            val candidate = lenses[main].bindings.indices.firstOrNull { index ->
+                bindingKey(lenses[main].bindings[index]) !in failedBindingKeys
+            } ?: continue
+            lensIndex = main
+            bindingIndex = candidate
+            openSelectedLens()
+            return
+        }
+        // Everything exposed by Camera2 failed. Reveal the last frame and stop retrying.
+        fadeFrozenFrame()
     }
+
+    private fun bindingKey(binding: Camera2LensDiscovery.Binding): String =
+        "${binding.openCameraId}|${binding.physicalCameraId.orEmpty()}"
 
     private fun onImageAvailable(source: ImageReader) {
         val image = source.acquireLatestImage() ?: return
@@ -387,6 +433,7 @@ internal class Camera2ScanController(
             val target = lenses.indices.lastOrNull { lenses[it].ratio <= virtualZoom * 1.05f }
                 ?: 0
             if (target != lensIndex) {
+                failedBindingKeys.clear()
                 lensIndex = target
                 bindingIndex = 0
                 openSelectedLens()
@@ -444,6 +491,9 @@ internal class Camera2ScanController(
             firstFrameCount++
             if (firstFrameCount >= 2) {
                 waitingForFirstFrame = false
+                lastWorkingLensIndex = attemptLensIndex
+                lastWorkingBindingIndex = attemptBindingIndex
+                failedBindingKeys.clear()
                 fadeFrozenFrame()
             }
         }
