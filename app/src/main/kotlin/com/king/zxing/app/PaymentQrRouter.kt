@@ -2,46 +2,55 @@ package com.king.zxing.app
 
 import android.app.Activity
 import android.content.ActivityNotFoundException
+import android.content.ComponentName
 import android.content.Intent
 import android.net.Uri
 
 object PaymentQrRouter {
-    private const val WECHAT_PACKAGE = "com.tencent.mm"
-    private const val ALIPAY_PACKAGE = "com.eg.android.AlipayGphone"
-    private const val PAYPAL_PACKAGE = "com.paypal.android.p2pmobile"
+    private const val WECHAT = "com.tencent.mm"
+    private const val ALIPAY = "com.eg.android.AlipayGphone"
+    private const val PAYPAL = "com.paypal.android.p2pmobile"
 
-    /** Returns true only after an intent was successfully handed to the target app. */
     fun openIfPaymentQr(activity: Activity, raw: String?): Boolean {
-        val value = raw?.trim().orEmpty()
-        val provider = PaymentQrClassifier.classify(value) ?: return false
-        val intent = when (provider) {
-            PaymentQrClassifier.Provider.WECHAT -> packageViewIntent(value, WECHAT_PACKAGE)
-            PaymentQrClassifier.Provider.ALIPAY -> alipayIntent(value)
-            PaymentQrClassifier.Provider.PAYPAL -> packageViewIntent(value, PAYPAL_PACKAGE)
+        return when (PaymentQrClassifier.classify(raw)) {
+            PaymentQrClassifier.Provider.WECHAT -> openWeChatScanner(activity)
+            PaymentQrClassifier.Provider.ALIPAY -> openAlipayScanner(activity)
+            PaymentQrClassifier.Provider.PAYPAL -> openPayPalScanner(activity)
+            null -> false
         }
+    }
+
+    private fun openWeChatScanner(activity: Activity): Boolean {
+        val intents = listOf(
+            Intent().setComponent(
+                ComponentName(WECHAT, "com.tencent.mm.plugin.scanner.ui.BaseScanUI")
+            ).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP),
+            Intent().setComponent(ComponentName(WECHAT, "com.tencent.mm.ui.LauncherUI"))
+                .putExtra("LauncherUI.From.Scaner.Shortcut", true)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP),
+            Intent(Intent.ACTION_VIEW, Uri.parse("weixin://scanqrcode")).setPackage(WECHAT),
+            Intent(Intent.ACTION_VIEW, Uri.parse("weixin://dl/scan")).setPackage(WECHAT)
+        )
+        return intents.any { launch(activity, it) }
+    }
+
+    private fun openAlipayScanner(activity: Activity): Boolean {
+        val intent = Intent(
+            Intent.ACTION_VIEW,
+            Uri.parse("alipays://platformapi/startapp?saId=10000007")
+        ).setPackage(ALIPAY)
         return launch(activity, intent)
     }
 
-    private fun packageViewIntent(value: String, packageName: String): Intent =
-        Intent(Intent.ACTION_VIEW, Uri.parse(value)).apply {
-            setPackage(packageName)
-            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        }
-
-    private fun alipayIntent(value: String): Intent {
-        val encoded = Uri.encode(value)
-        return Intent(
-            Intent.ACTION_VIEW,
-            Uri.parse("alipays://platformapi/startapp?saId=10000007&qrcode=$encoded")
-        ).apply {
-            setPackage(ALIPAY_PACKAGE)
-            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+    private fun openPayPalScanner(activity: Activity): Boolean {
+        val shortcuts = listOf("paypal://qrcode_scan", "paypal://qrcode", "paypal://scan")
+        return shortcuts.any { uri ->
+            launch(activity, Intent(Intent.ACTION_VIEW, Uri.parse(uri)).setPackage(PAYPAL))
         }
     }
 
     private fun launch(activity: Activity, intent: Intent): Boolean {
         return try {
-            // Do not depend only on resolveActivity; package visibility and OEM wrappers vary.
             activity.startActivity(intent)
             true
         } catch (_: ActivityNotFoundException) {
