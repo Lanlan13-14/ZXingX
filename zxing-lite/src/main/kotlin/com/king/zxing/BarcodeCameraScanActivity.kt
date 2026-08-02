@@ -4,9 +4,11 @@ import android.view.View
 import androidx.annotation.IdRes
 import com.google.zxing.Result
 import com.king.camera.scan.BaseCameraScanActivity
+import com.king.camera.scan.CameraScan
 import com.king.camera.scan.analyze.Analyzer
 import com.king.view.viewfinderview.ViewfinderView
 import com.king.zxing.analyze.MultiFormatAnalyzer
+import com.king.zxing.config.LogicalMultiCameraConfig
 
 /**
  * 基于zxing实现的扫码识别 - 相机扫描基类
@@ -30,6 +32,17 @@ abstract class BarcodeCameraScanActivity : BaseCameraScanActivity<Result>() {
             viewfinderView = findViewById(viewfinderViewId)
         }
         super.initUI()
+    }
+
+    /**
+     * Prefer the OEM logical multi-camera and keep pinch-to-zoom on.
+     * Zoom ratio is handled by the system (ultra-wide / main / tele when available).
+     * No extra lens-switch UI.
+     */
+    override fun initCameraScan(cameraScan: CameraScan<Result>) {
+        super.initCameraScan(cameraScan)
+        cameraScan.setNeedTouchZoom(true)
+        cameraScan.setCameraConfig(LogicalMultiCameraConfig(this))
     }
 
     override fun createAnalyzer(): Analyzer<Result>? {
