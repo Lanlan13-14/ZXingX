@@ -34,7 +34,6 @@
 
     <string name="generate_format_qr">二维码 · QR_CODE</string>
     <string name="generate_format_code128">条形码 · CODE_128</string>
-    <string name="generate_hint">在下方输入文字、链接或数字，点「生成」即可得到可扫描的图片。二维码中间为 ZXingX 标识。</string>
     <string name="generate_content_label">要编码的内容</string>
     <string name="generate_input_hint">输入内容</string>
     <string name="generate_input_hint_qr">例如网址、微信号、纯文本…</string>

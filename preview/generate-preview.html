@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>ZXingX 生成页预览</title>
+  <style>
+    :root {
+      --bg: #F2F2F7;
+      --surface: #FFFFFF;
+      --surface-2: #E5E5EA;
+      --text: #000000;
+      --text-2: #8E8E93;
+      --text-3: #C7C7CC;
+      --primary: #007AFF;
+      --sep: rgba(60, 60, 67, 0.18);
+      --radius: 18px;
+      --icon: #000000;
+    }
+    html[data-theme="dark"],
+    [data-theme="dark"] {
+      --bg: #000000;
+      --surface: #1C1C1E;
+      --surface-2: #2C2C2E;
+      --text: #D1D1D6;
+      --text-2: #8E8E93;
+      --text-3: #636366;
+      --primary: #0A84FF;
+      --sep: rgba(84, 84, 88, 0.45);
+      --icon: #F2F2F7;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "PingFang SC", sans-serif;
+      background: #111;
+      color: #fff;
+      padding: 24px 12px 48px;
+    }
+    h1 {
+      font-size: 18px;
+      font-weight: 600;
+      text-align: center;
+      margin: 0 0 6px;
+    }
+    .hint {
+      text-align: center;
+      color: #8e8e93;
+      font-size: 13px;
+      margin: 0 0 16px;
+    }
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .toolbar button {
+      border: 0;
+      border-radius: 999px;
+      padding: 8px 14px;
+      background: #2c2c2e;
+      color: #fff;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .toolbar button.active { background: #0A84FF; }
+    .phones {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .phone {
+      width: 360px;
+      min-height: 760px;
+      border-radius: 36px;
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+      border: 1px solid #333;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+    .phone-caption {
+      position: absolute;
+      top: 10px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      color: #777;
+      pointer-events: none;
+      z-index: 2;
+    }
+    .status {
+      height: 44px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      padding: 0 22px 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .nav {
+      height: 56px;
+      display: grid;
+      grid-template-columns: 44px 1fr 44px;
+      align-items: center;
+      padding: 0 8px;
+      border-bottom: 1px solid var(--sep);
+    }
+    .nav .back {
+      width: 44px;
+      height: 44px;
+      display: grid;
+      place-items: center;
+      color: var(--icon);
+      font-size: 28px;
+      line-height: 1;
+      font-weight: 300;
+    }
+    .nav .title {
+      text-align: center;
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .body {
+      padding: 16px 20px 28px;
+      overflow: auto;
+      flex: 1;
+    }
+    .desc {
+      font-size: 15px;
+      line-height: 1.45;
+      color: var(--text-2);
+      margin: 0 0 16px;
+    }
+    .label {
+      font-size: 13px;
+      color: var(--text-2);
+      margin-bottom: 8px;
+    }
+    .input {
+      width: 100%;
+      min-height: 96px;
+      border: 0;
+      border-radius: 14px;
+      background: var(--surface-2);
+      color: var(--text);
+      padding: 12px;
+      font-size: 16px;
+      line-height: 1.4;
+      resize: none;
+      outline: none;
+      font-family: inherit;
+    }
+    .btn-primary {
+      width: 100%;
+      height: 48px;
+      margin-top: 12px;
+      border: 0;
+      border-radius: 14px;
+      background: var(--primary);
+      color: #fff;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .card {
+      margin-top: 16px;
+      background: var(--surface);
+      border-radius: 18px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      height: 24px;
+      background: var(--surface-2);
+      color: var(--text-2);
+      border-radius: 999px;
+      padding: 0 12px;
+      font-size: 13px;
+      margin-bottom: 20px;
+    }
+    .preview-box {
+      width: 220px;
+      height: 220px;
+      border-radius: 12px;
+      background: #fff;
+      display: grid;
+      place-items: center;
+      position: relative;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,.04);
+    }
+    [data-theme="dark"] .preview-box {
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
+    }
+    .qr {
+      width: 180px;
+      height: 180px;
+      background:
+        linear-gradient(#000 0 0) 0 0 / 28% 28%,
+        linear-gradient(#000 0 0) 100% 0 / 28% 28%,
+        linear-gradient(#000 0 0) 0 100% / 28% 28%,
+        repeating-conic-gradient(#000 0% 25%, #fff 0% 50%) 50% 50% / 12px 12px;
+      background-repeat: no-repeat;
+      border-radius: 4px;
+      position: relative;
+    }
+    .qr::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 36px;
+      height: 36px;
+      transform: translate(-50%, -50%);
+      border-radius: 10px;
+      background:
+        #0A84FF
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='10' y='10' width='18' height='18' rx='4' fill='none' stroke='white' stroke-width='4'/%3E%3Crect x='36' y='10' width='18' height='18' rx='4' fill='none' stroke='white' stroke-width='4'/%3E%3Crect x='10' y='36' width='18' height='18' rx='4' fill='none' stroke='white' stroke-width='4'/%3E%3Crect x='15' y='15' width='8' height='8' rx='2' fill='white'/%3E%3Crect x='14' y='30' width='36' height='3' rx='1.5' fill='white'/%3E%3Crect x='38' y='38' width='7' height='7' rx='1.5' fill='white'/%3E%3Crect x='47' y='38' width='7' height='7' rx='1.5' fill='%23D1D1D6'/%3E%3Crect x='38' y='47' width='7' height='7' rx='1.5' fill='%23D1D1D6'/%3E%3Crect x='47' y='47' width='7' height='7' rx='1.5' fill='white'/%3E%3C/svg%3E")
+        center/70% 70% no-repeat;
+    }
+    .barcode {
+      width: 220px;
+      height: 96px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 2px;
+      padding: 8px 10px 6px;
+    }
+    .barcode i {
+      display: block;
+      width: 3px;
+      background: #111;
+      border-radius: 1px;
+    }
+    .barcode i:nth-child(3n) { width: 2px; height: 78%; }
+    .barcode i:nth-child(4n) { width: 5px; height: 100%; }
+    .barcode i:nth-child(5n) { width: 2px; height: 88%; }
+    .barcode-text {
+      margin-top: 6px;
+      font-size: 13px;
+      letter-spacing: 0.12em;
+      color: #111;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .encoded {
+      margin-top: 16px;
+      font-size: 13px;
+      color: var(--text-2);
+      text-align: center;
+      word-break: break-all;
+      line-height: 1.4;
+    }
+    .btn-secondary {
+      width: 100%;
+      height: 48px;
+      margin-top: 16px;
+      border: 0;
+      border-radius: 14px;
+      background: var(--surface-2);
+      color: var(--text);
+      font-size: 15px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-secondary svg {
+      width: 18px;
+      height: 18px;
+      color: var(--primary);
+    }
+    .btn-secondary svg path { fill: currentColor; }
+  </style>
+</head>
+<body>
+  <h1>生成二维码 / 条形码</h1>
+  <p class="hint">可输入内容 · 生成 · 预览 · 分享</p>
+  <div class="toolbar">
+    <button class="active" type="button" data-theme-btn="light">Light</button>
+    <button type="button" data-theme-btn="dark">Dark</button>
+  </div>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="ic-share" viewBox="0 0 24 24">
+        <path d="M18 5c-1.1 0-2 .9-2 2 0 .24.05.47.12.68l-6.1 3.55c-.32-.47-.9-.77-1.52-.77-1.1 0-2 .9-2 2s.9 2 2 2c.62 0 1.2-.3 1.52-.77l6.1 3.55c-.07.21-.12.44-.12.68 0 1.1.9 2 2 2s2-.9 2-2-.9-2-2-2c-.62 0-1.2.3-1.52.77l-6.1-3.55c.07-.21.12-.44.12-.68s-.05-.47-.12-.68l6.1-3.55c.32.47.9.77 1.52.77 1.1 0 2-.9 2-2s-.9-2-2-2z"/>
+      </symbol>
+      <symbol id="ic-back" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M14.71 6.29c.39.39.39 1.02 0 1.41L10.41 12l4.3 4.3c.39.39.39 1.02 0 1.41-.39.39-1.02.39-1.41 0l-5-5c-.39-.39-.39-1.02 0-1.41l5-5c.39-.39 1.02-.39 1.41 0z"/>
+      </symbol>
+    </defs>
+  </svg>
+
+  <div class="phones" id="phones" data-theme="light">
+    <!-- QR -->
+    <div class="phone">
+      <div class="phone-caption">GENERATE QR</div>
+      <div class="status"><span>9:41</span><span>LTE</span></div>
+      <div class="nav">
+        <div class="back" aria-label="back">
+          <svg width="24" height="24" viewBox="0 0 24 24"><use href="#ic-back"/></svg>
+        </div>
+        <div class="title">生成二维码</div>
+        <div></div>
+      </div>
+      <div class="body">
+        <div class="label">要编码的内容</div>
+        <textarea class="input" readonly>https://github.com/Lanlan13-14/ZXingX</textarea>
+        <button class="btn-primary" type="button">生成</button>
+        <div class="card">
+          <div class="chip">二维码 · QR_CODE</div>
+          <div class="preview-box">
+            <div class="qr" aria-hidden="true"></div>
+          </div>
+          <div class="encoded">当前内容：https://github.com/Lanlan13-14/ZXingX</div>
+          <button class="btn-secondary" type="button">
+            <svg><use href="#ic-share"/></svg>
+            <span>分享图片</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Barcode -->
+    <div class="phone">
+      <div class="phone-caption">GENERATE BARCODE</div>
+      <div class="status"><span>9:41</span><span>LTE</span></div>
+      <div class="nav">
+        <div class="back" aria-label="back">
+          <svg width="24" height="24" viewBox="0 0 24 24"><use href="#ic-back"/></svg>
+        </div>
+        <div class="title">生成条形码</div>
+        <div></div>
+      </div>
+      <div class="body">
+        <div class="label">要编码的内容</div>
+        <textarea class="input" readonly>1234567890</textarea>
+        <button class="btn-primary" type="button">生成</button>
+        <div class="card">
+          <div class="chip">条形码 · CODE_128</div>
+          <div class="preview-box" style="height:140px">
+            <div>
+              <div class="barcode" aria-hidden="true">
+                <i style="height:100%"></i><i style="height:90%"></i><i style="height:100%"></i>
+                <i style="height:70%"></i><i style="height:100%"></i><i style="height:85%"></i>
+                <i style="height:100%"></i><i style="height:60%"></i><i style="height:100%"></i>
+                <i style="height:95%"></i><i style="height:100%"></i><i style="height:75%"></i>
+                <i style="height:100%"></i><i style="height:90%"></i><i style="height:100%"></i>
+                <i style="height:65%"></i><i style="height:100%"></i><i style="height:80%"></i>
+                <i style="height:100%"></i><i style="height:70%"></i><i style="height:100%"></i>
+                <i style="height:95%"></i><i style="height:100%"></i><i style="height:85%"></i>
+                <i style="height:100%"></i><i style="height:60%"></i><i style="height:100%"></i>
+                <i style="height:90%"></i><i style="height:100%"></i><i style="height:75%"></i>
+                <i style="height:100%"></i><i style="height:95%"></i>
+              </div>
+              <div class="barcode-text">1234567890</div>
+            </div>
+          </div>
+          <div class="encoded">当前内容：1234567890</div>
+          <button class="btn-secondary" type="button">
+            <svg><use href="#ic-share"/></svg>
+            <span>分享图片</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const root = document.getElementById('phones');
+    function applyTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      root.setAttribute('data-theme', theme);
+    }
+    applyTheme('light');
+    document.querySelectorAll('[data-theme-btn]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-theme-btn]').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        applyTheme(btn.dataset.themeBtn);
+      });
+    });
+  </script>
+</body>
+</html>

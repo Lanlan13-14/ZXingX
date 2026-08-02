@@ -46,20 +46,10 @@
             android:orientation="vertical">
 
             <TextView
-                android:id="@+id/tvHint"
-                style="@style/TextAppearance.App.Caption"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:lineSpacingMultiplier="1.35"
-                android:text="@string/generate_hint"
-                android:textSize="@dimen/size_15sp" />
-
-            <TextView
                 android:id="@+id/tvContentLabel"
                 style="@style/TextAppearance.App.Caption"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/space_16"
                 android:text="@string/generate_content_label" />
 
             <EditText
