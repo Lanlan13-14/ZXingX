@@ -51,10 +51,10 @@ class CodeActivity : AppCompatActivity() {
         val isQRCode = intent.getBooleanExtra(MainActivity.KEY_IS_QR_CODE, false)
 
         if (isQRCode) {
-            tvBarcodeFormat.text = "BarcodeFormat: QR_CODE"
+            tvBarcodeFormat.text = getString(R.string.generate_format_qr)
             createQRCode(getString(R.string.app_name))
         } else {
-            tvBarcodeFormat.text = "BarcodeFormat: CODE_128"
+            tvBarcodeFormat.text = getString(R.string.generate_format_code128)
             createBarCode("1234567890")
         }
     }

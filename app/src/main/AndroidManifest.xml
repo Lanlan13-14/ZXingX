@@ -17,36 +17,40 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-        <activity android:name=".MainActivity"
-                  android:screenOrientation="portrait"
-                  android:exported="true">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:screenOrientation="portrait">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
+                <action android:name="android.intent.action.MAIN" />
 
-                <category android:name="android.intent.category.LAUNCHER"/>
+                <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
         <activity
             android:name=".FullScreenQRCodeScanActivity"
             android:screenOrientation="portrait"
-            android:theme="@style/CameraScanTheme"/>
+            android:theme="@style/CameraScanTheme" />
 
         <activity
             android:name=".MultiFormatScanActivity"
             android:screenOrientation="portrait"
-            android:theme="@style/CameraScanTheme"/>
+            android:theme="@style/CameraScanTheme" />
 
         <activity
             android:name=".QRCodeScanActivity"
             android:screenOrientation="portrait"
-            android:theme="@style/CameraScanTheme"/>
+            android:theme="@style/CameraScanTheme" />
 
         <activity
             android:name=".CodeActivity"
-            android:screenOrientation="portrait"/>
+            android:screenOrientation="portrait" />
 
-
+        <activity
+            android:name=".ScanResultActivity"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="stateAlwaysHidden" />
     </application>
 
 </manifest>

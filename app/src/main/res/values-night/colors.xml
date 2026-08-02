@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand -->
+    <color name="colorPrimary">#0A84FF</color>
+    <color name="colorPrimaryDark">#0A84FF</color>
+    <color name="colorAccent">#0A84FF</color>
+    <color name="colorOnPrimary">#FFFFFF</color>
+
+    <!-- Surfaces: near-black, not pure OLED white-on-black glare -->
+    <color name="colorBackground">#000000</color>
+    <color name="colorSurface">#1C1C1E</color>
+    <color name="colorSurfaceSecondary">#2C2C2E</color>
+    <color name="colorSurfaceElevated">#2C2C2E</color>
+
+    <!-- Text: soft gray, never pure white (reduces eye strain) -->
+    <color name="colorTextPrimary">#D1D1D6</color>
+    <color name="colorTextSecondary">#8E8E93</color>
+    <color name="colorTextTertiary">#636366</color>
+    <color name="colorTextOnPrimary">#FFFFFF</color>
+
+    <!-- UI chrome -->
+    <color name="colorSeparator">#38383A</color>
+    <color name="colorSeparatorHairline">#54545899</color>
+    <!-- Icons brighter than body text so they don't look washed out -->
+    <color name="colorIcon">#F2F2F7</color>
+    <color name="colorIconSecondary">#C7C7CC</color>
+    <color name="colorRipple">#330A84FF</color>
+    <color name="colorCardPressed">#2C2C2E</color>
+
+    <!-- Semantic -->
+    <color name="colorSuccess">#30D158</color>
+    <color name="colorDanger">#FF453A</color>
+    <color name="colorWarning">#FF9F0A</color>
+
+    <!-- Legacy / shared -->
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+    <color name="transparent">#00000000</color>
+</resources>

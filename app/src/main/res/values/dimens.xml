@@ -1,12 +1,40 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <dimen name="status_bar_height">25dp</dimen>
+    <dimen name="title_height">56dp</dimen>
+    <dimen name="toolbar_height">56dp</dimen>
 
-    <dimen name="title_height">50dp</dimen>
+    <!-- Spacing scale -->
+    <dimen name="space_4">4dp</dimen>
+    <dimen name="space_8">8dp</dimen>
+    <dimen name="space_12">12dp</dimen>
+    <dimen name="space_16">16dp</dimen>
+    <dimen name="space_20">20dp</dimen>
+    <dimen name="space_24">24dp</dimen>
+    <dimen name="space_32">32dp</dimen>
+    <dimen name="space_40">40dp</dimen>
 
+    <!-- Radius -->
+    <dimen name="radius_sm">10dp</dimen>
+    <dimen name="radius_md">14dp</dimen>
+    <dimen name="radius_lg">18dp</dimen>
+    <dimen name="radius_xl">24dp</dimen>
+
+    <!-- Type -->
+    <dimen name="size_13sp">13sp</dimen>
     <dimen name="size_14sp">14sp</dimen>
+    <dimen name="size_15sp">15sp</dimen>
     <dimen name="size_16sp">16sp</dimen>
+    <dimen name="size_17sp">17sp</dimen>
     <dimen name="size_18sp">18sp</dimen>
+    <dimen name="size_20sp">20sp</dimen>
+    <dimen name="size_28sp">28sp</dimen>
+    <dimen name="size_34sp">34sp</dimen>
 
     <dimen name="size_14dp">14dp</dimen>
+    <dimen name="icon_size">24dp</dimen>
+    <dimen name="icon_draw_size">20dp</dimen>
+    <dimen name="icon_button_size">44dp</dimen>
+    <dimen name="action_row_height">56dp</dimen>
+    <dimen name="card_icon_size">36dp</dimen>
 </resources>

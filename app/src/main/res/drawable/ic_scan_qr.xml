@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- QR glyph: three finder patterns + data modules, 24 grid centered -->
+    <path
+        android:fillColor="@color/colorPrimary"
+        android:pathData="M4,4h7v7H4V4zM6,6v3h3V6H6zM13,4h7v7h-7V4zM15,6v3h3V6h-3zM4,13h7v7H4v-7zM6,15v3h3v-3H6zM13,13h2v2h-2zM17,13h3v2h-3zM13,17h2v3h-2zM17,17h3v3h-3z" />
+</vector>

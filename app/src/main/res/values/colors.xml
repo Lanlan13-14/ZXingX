@@ -1,8 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorPrimary">#3F51B5</color>
-    <color name="colorPrimaryDark">#303F9F</color>
-    <color name="colorAccent">#FF4081</color>
+    <!-- Brand -->
+    <color name="colorPrimary">#007AFF</color>
+    <color name="colorPrimaryDark">#0062CC</color>
+    <color name="colorAccent">#007AFF</color>
+    <color name="colorOnPrimary">#FFFFFF</color>
 
-    <color name="white">#ffffff</color>
+    <!-- Surfaces -->
+    <color name="colorBackground">#F2F2F7</color>
+    <color name="colorSurface">#FFFFFF</color>
+    <color name="colorSurfaceSecondary">#E5E5EA</color>
+    <color name="colorSurfaceElevated">#FFFFFF</color>
+
+    <!-- Text -->
+    <color name="colorTextPrimary">#000000</color>
+    <color name="colorTextSecondary">#8E8E93</color>
+    <color name="colorTextTertiary">#C7C7CC</color>
+    <color name="colorTextOnPrimary">#FFFFFF</color>
+
+    <!-- UI chrome -->
+    <color name="colorSeparator">#C6C6C8</color>
+    <color name="colorSeparatorHairline">#3C3C435C</color>
+    <color name="colorIcon">#000000</color>
+    <color name="colorIconSecondary">#8E8E93</color>
+    <color name="colorRipple">#1F007AFF</color>
+    <color name="colorCardPressed">#F2F2F7</color>
+
+    <!-- Semantic -->
+    <color name="colorSuccess">#34C759</color>
+    <color name="colorDanger">#FF3B30</color>
+    <color name="colorWarning">#FF9500</color>
+
+    <!-- Legacy / shared -->
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+    <color name="transparent">#00000000</color>
 </resources>

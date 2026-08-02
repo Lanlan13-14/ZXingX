@@ -1,13 +1,13 @@
-name: Cleanup Stale
+name: Stale
 
+# Optional. Disabled by default for this fork.
 on:
-  schedule:
-    - cron: '0 16 * * *'
+  workflow_dispatch:
 
 jobs:
-  stale:
-    permissions:
-      actions: write
-      issues: write
-      pull-requests: write
-    uses: jenly1314/actions/.github/workflows/reusable-stale.yml@v1
+  noop:
+    name: Stale noop
+    runs-on: ubuntu-latest
+    steps:
+      - name: Skip
+        run: echo "Stale issue automation is not configured for this fork."

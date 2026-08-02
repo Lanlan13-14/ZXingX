@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>ZXingX UI Preview</title>
+  <style>
+    :root {
+      --bg: #F2F2F7;
+      --surface: #FFFFFF;
+      --surface-2: #E5E5EA;
+      --text: #000000;
+      --text-2: #8E8E93;
+      --text-3: #C7C7CC;
+      --primary: #007AFF;
+      --sep: rgba(60, 60, 67, 0.18);
+      --radius: 18px;
+      --icon: #000000;
+      --row-pad-x: 16px;
+      --row-gap: 12px;
+      --badge: 36px;
+      --icon-draw: 20px;
+      --chev: 20px;
+    }
+    html[data-theme="dark"],
+    [data-theme="dark"] {
+      --bg: #000000;
+      --surface: #1C1C1E;
+      --surface-2: #2C2C2E;
+      /* Soft gray text (not pure white) to reduce eye strain */
+      --text: #D1D1D6;
+      --text-2: #8E8E93;
+      --text-3: #636366;
+      --primary: #0A84FF;
+      --sep: rgba(84, 84, 88, 0.45);
+      /* Icons brighter than body text */
+      --icon: #F2F2F7;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "PingFang SC", sans-serif;
+      background: #111;
+      color: #fff;
+      padding: 24px 12px 48px;
+    }
+    h1 {
+      font-size: 18px;
+      font-weight: 600;
+      text-align: center;
+      margin: 0 0 8px;
+    }
+    .hint {
+      text-align: center;
+      color: #8e8e93;
+      font-size: 13px;
+      margin: 0 0 16px;
+    }
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .toolbar button {
+      border: 0;
+      border-radius: 999px;
+      padding: 8px 14px;
+      background: #2c2c2e;
+      color: #fff;
+      font-size: 13px;
+      cursor: pointer;
+      transition: transform 160ms ease-out, background 160ms ease-out;
+    }
+    .toolbar button:active { transform: scale(0.97); }
+    .toolbar button.active { background: #0A84FF; }
+    .phones {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .phone {
+      width: 360px;
+      min-height: 720px;
+      border-radius: 36px;
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+      border: 1px solid #333;
+      position: relative;
+    }
+    .phone-caption {
+      position: absolute;
+      top: 10px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      color: #777;
+      pointer-events: none;
+      z-index: 2;
+    }
+    .status {
+      height: 44px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      padding: 0 22px 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .home { padding: 8px 20px 32px; }
+    .large-title {
+      font-size: 34px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin: 8px 0 0;
+      line-height: 1.1;
+    }
+    .subtitle {
+      color: var(--text-2);
+      font-size: 15px;
+      margin-top: 4px;
+      line-height: 1.3;
+    }
+    .section {
+      margin-top: 28px;
+      margin-bottom: 8px;
+      padding-left: 4px;
+      font-size: 13px;
+      color: var(--text-2);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-weight: 600;
+    }
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: var(--badge) minmax(0, 1fr) var(--chev);
+      column-gap: var(--row-gap);
+      align-items: center;
+      min-height: 64px;
+      padding: 12px var(--row-pad-x);
+      background: transparent;
+      transition: transform 160ms ease-out, background 120ms ease-out;
+      cursor: default;
+    }
+    .row:active {
+      transform: scale(0.985);
+      background: color-mix(in srgb, var(--surface-2) 55%, transparent);
+    }
+    .row + .row {
+      border-top: 1px solid var(--sep);
+    }
+    .badge {
+      width: var(--badge);
+      height: var(--badge);
+      border-radius: 10px;
+      background: var(--surface-2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .badge svg,
+    .chev svg,
+    .result-bar .icon-btn svg {
+      width: var(--icon-draw);
+      height: var(--icon-draw);
+      display: block;
+    }
+    .badge svg { color: var(--primary); }
+    .badge svg path { fill: currentColor; }
+    .meta { min-width: 0; }
+    .meta .t {
+      font-size: 17px;
+      font-weight: 600;
+      line-height: 1.25;
+      color: var(--text);
+    }
+    .meta .d {
+      font-size: 13px;
+      color: var(--text-2);
+      margin-top: 2px;
+      line-height: 1.3;
+    }
+    .chev {
+      width: var(--chev);
+      height: var(--chev);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-3);
+      flex-shrink: 0;
+    }
+    .chev svg path { fill: currentColor; }
+
+    .result {
+      background: var(--surface);
+      min-height: 720px;
+      display: flex;
+      flex-direction: column;
+    }
+    .result-bar {
+      height: 56px;
+      display: grid;
+      grid-template-columns: 44px 1fr 44px;
+      align-items: center;
+      padding: 0 8px;
+    }
+    .result-bar .icon-btn {
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--icon);
+      border-radius: 50%;
+      transition: transform 160ms ease-out, background 120ms ease-out;
+    }
+    .result-bar .icon-btn:active {
+      transform: scale(0.92);
+      background: color-mix(in srgb, var(--surface-2) 70%, transparent);
+    }
+    .result-bar .icon-btn svg path { fill: currentColor; }
+    .result-bar .title {
+      text-align: center;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .result-body {
+      padding: 8px 24px 16px;
+      flex: 1;
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      height: 24px;
+      background: var(--surface-2);
+      color: var(--text-2);
+      border-radius: 999px;
+      padding: 0 12px;
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+    .result-text {
+      font-size: 17px;
+      line-height: 1.45;
+      color: var(--text);
+    }
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      padding: 12px 20px 28px;
+    }
+    .actions button {
+      height: 48px;
+      border: 0;
+      border-radius: 14px;
+      background: var(--surface-2);
+      color: var(--text);
+      font-size: 15px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: transform 160ms ease-out;
+      cursor: pointer;
+    }
+    .actions button:active { transform: scale(0.97); }
+    .actions button svg {
+      width: 18px;
+      height: 18px;
+      color: var(--primary);
+    }
+    .actions button svg path { fill: currentColor; }
+  </style>
+</head>
+<body>
+  <h1>ZXingX UI Preview</h1>
+  <p class="hint">vector icons · soft dark text · light / dark</p>
+  <div class="toolbar">
+    <button class="active" type="button" data-theme-btn="light">Light</button>
+    <button type="button" data-theme-btn="dark">Dark</button>
+  </div>
+
+  <!-- Shared symbol defs (same pathData as Android vector drawables) -->
+  <svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute">
+    <defs>
+      <symbol id="ic-scan-multi" viewBox="0 0 24 24">
+        <path d="M4 4h5v2H6v3H4V4zm11 0h5v5h-2V6h-3V4zM4 15h2v3h3v2H4v-5zm14 0h2v5h-5v-2h3v-3zM5 11h14v2H5z"/>
+      </symbol>
+      <symbol id="ic-scan-qr" viewBox="0 0 24 24">
+        <path d="M4 4h7v7H4V4zm2 2v3h3V6H6zm7-2h7v7h-7V4zm2 2v3h3V6h-3zM4 13h7v7H4v-7zm2 2v3h3v-3H6zm7-2h2v2h-2zm4 0h3v2h-3zm-4 4h2v3h-2zm4 0h3v3h-3z"/>
+      </symbol>
+      <symbol id="ic-scan-full" viewBox="0 0 24 24">
+        <path d="M4 4h6v2H6v4H4V4zm10 0h6v6h-2V6h-4V4zM4 14h2v4h4v2H4v-6zm14 0h2v6h-6v-2h4v-4z"/>
+      </symbol>
+      <symbol id="ic-photo" viewBox="0 0 24 24">
+        <path d="M5 5h14c1.1 0 2 .9 2 2v10c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V7c0-1.1.9-2 2-2zm0 2v10h14V7H5zm3.5 3.5c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5S7 12.83 7 12s.67-1.5 1.5-1.5zM7 15.5l2.5-3 2 2.5 2.5-3.5 3 4H7z"/>
+      </symbol>
+      <symbol id="ic-generate-qr" viewBox="0 0 24 24">
+        <path d="M7 3h10c2.21 0 4 1.79 4 4v10c0 2.21-1.79 4-4 4H7c-2.21 0-4-1.79-4-4V7c0-2.21 1.79-4 4-4zm0 2c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2H7zm4 3h2v3h3v2h-3v3h-2v-3H8v-2h3V8z"/>
+      </symbol>
+      <symbol id="ic-generate-barcode" viewBox="0 0 24 24">
+        <path d="M3 6h2v12H3zm4 0h1v12H7zm3 0h2v12h-2zm4 0h1v12h-1zm3 0h2v12h-2zm4 0h1v12h-1z"/>
+      </symbol>
+      <symbol id="ic-chevron" viewBox="0 0 24 24">
+        <path d="M9.29 6.29c.39-.39 1.02-.39 1.41 0l5 5c.39.39.39 1.02 0 1.41l-5 5c-.39.39-1.02.39-1.41 0-.39-.39-.39-1.02 0-1.41L13.59 12 9.29 7.7c-.39-.39-.39-1.02 0-1.41z"/>
+      </symbol>
+      <symbol id="ic-close" viewBox="0 0 24 24">
+        <path d="M6.05 6.05c.39-.39 1.02-.39 1.41 0L12 10.59l4.54-4.54c.39-.39 1.02-.39 1.41 0 .39.39.39 1.02 0 1.41L13.41 12l4.54 4.54c.39.39.39 1.02 0 1.41-.39.39-1.02.39-1.41 0L12 13.41l-4.54 4.54c-.39.39-1.02.39-1.41 0-.39-.39-.39-1.02 0-1.41L10.59 12 6.05 7.46c-.39-.39-.39-1.02 0-1.41z"/>
+      </symbol>
+      <symbol id="ic-check" viewBox="0 0 24 24">
+        <path d="M9.55 16.6L5.2 12.25c-.39-.39-.39-1.02 0-1.41.39-.39 1.02-.39 1.41 0l2.94 2.94 7.64-7.64c.39-.39 1.02-.39 1.41 0 .39.39.39 1.02 0 1.41L10.96 16.6c-.39.39-1.02.39-1.41 0z"/>
+      </symbol>
+      <symbol id="ic-copy" viewBox="0 0 24 24">
+        <path d="M9 3h8c1.66 0 3 1.34 3 3v10h-2V6c0-.55-.45-1-1-1H9V3zM5 7h10c1.1 0 2 .9 2 2v10c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V9c0-1.1.9-2 2-2zm0 2v10h10V9H5z"/>
+      </symbol>
+      <symbol id="ic-share" viewBox="0 0 24 24">
+        <path d="M18 5c-1.1 0-2 .9-2 2 0 .24.05.47.12.68l-6.1 3.55c-.32-.47-.9-.77-1.52-.77-1.1 0-2 .9-2 2s.9 2 2 2c.62 0 1.2-.3 1.52-.77l6.1 3.55c-.07.21-.12.44-.12.68 0 1.1.9 2 2 2s2-.9 2-2-.9-2-2-2c-.62 0-1.2.3-1.52.77l-6.1-3.55c.07-.21.12-.44.12-.68s-.05-.47-.12-.68l6.1-3.55c.32.47.9.77 1.52.77 1.1 0 2-.9 2-2s-.9-2-2-2z"/>
+      </symbol>
+    </defs>
+  </svg>
+
+  <div class="phones" id="phones" data-theme="light">
+    <div class="phone">
+      <div class="phone-caption">HOME</div>
+      <div class="status"><span>9:41</span><span>LTE</span></div>
+      <div class="home">
+        <div class="large-title">扫一扫</div>
+
+        <div class="section">扫描</div>
+        <div class="card">
+          <div class="row">
+            <div class="badge"><svg><use href="#ic-scan-multi"/></svg></div>
+            <div class="meta"><div class="t">连续扫码</div><div class="d">识别多种一维码与二维码</div></div>
+            <div class="chev"><svg><use href="#ic-chevron"/></svg></div>
+          </div>
+          <div class="row">
+            <div class="badge"><svg><use href="#ic-scan-qr"/></svg></div>
+            <div class="meta"><div class="t">扫二维码</div><div class="d">仅识别二维码，更快更准</div></div>
+            <div class="chev"><svg><use href="#ic-chevron"/></svg></div>
+          </div>
+          <div class="row">
+            <div class="badge"><svg><use href="#ic-scan-full"/></svg></div>
+            <div class="meta"><div class="t">全屏识别</div><div class="d">全画面识别二维码</div></div>
+            <div class="chev"><svg><use href="#ic-chevron"/></svg></div>
+          </div>
+          <div class="row">
+            <div class="badge"><svg><use href="#ic-photo"/></svg></div>
+            <div class="meta"><div class="t">相册识别</div><div class="d">从图片中识别条码</div></div>
+            <div class="chev"><svg><use href="#ic-chevron"/></svg></div>
+          </div>
+        </div>
+
+        <div class="section">生成</div>
+        <div class="card">
+          <div class="row">
+            <div class="badge"><svg><use href="#ic-generate-qr"/></svg></div>
+            <div class="meta"><div class="t">生成二维码</div><div class="d">创建带 Logo 的二维码</div></div>
+            <div class="chev"><svg><use href="#ic-chevron"/></svg></div>
+          </div>
+          <div class="row">
+            <div class="badge"><svg><use href="#ic-generate-barcode"/></svg></div>
+            <div class="meta"><div class="t">生成条形码</div><div class="d">创建 CODE_128 线性条码</div></div>
+            <div class="chev"><svg><use href="#ic-chevron"/></svg></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phone">
+      <div class="phone-caption">SCAN RESULT</div>
+      <div class="result">
+        <div class="status"><span>9:41</span><span>LTE</span></div>
+        <div class="result-bar">
+          <div class="icon-btn" aria-label="close"><svg><use href="#ic-close"/></svg></div>
+          <div class="title">扫描结果</div>
+          <div class="icon-btn" aria-label="confirm"><svg><use href="#ic-check"/></svg></div>
+        </div>
+        <div class="result-body">
+          <div class="chip">文本</div>
+          <div class="result-text">扫描结果不再以小消息提示而生</div>
+        </div>
+        <div class="actions">
+          <button type="button">
+            <svg><use href="#ic-copy"/></svg>
+            <span>复制</span>
+          </button>
+          <button type="button">
+            <svg><use href="#ic-share"/></svg>
+            <span>分享</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const root = document.getElementById('phones');
+    function applyTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      root.setAttribute('data-theme', theme);
+    }
+    applyTheme('light');
+    document.querySelectorAll('[data-theme-btn]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-theme-btn]').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        applyTheme(btn.dataset.themeBtn);
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Linear barcode bars, optically centered -->
+    <path
+        android:fillColor="@color/colorPrimary"
+        android:pathData="M3,6h2v12H3zM7,6h1v12H7zM10,6h2v12h-2zM14,6h1v12h-1zM17,6h2v12h-2zM21,6h1v12h-1z" />
+</vector>

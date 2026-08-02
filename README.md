@@ -1,219 +1,174 @@
-# ZXingLite
+# ZXingX
 
 ![Image](app/src/main/ic_launcher-web.png)
 
-[![MavenCentral](https://img.shields.io/maven-central/v/com.github.jenly1314/zxing-lite?logo=sonatype)](https://repo1.maven.org/maven2/com/github/jenly1314/ZXingLite)
-[![JitPack](https://img.shields.io/jitpack/v/github/jenly1314/ZXingLite?logo=jitpack)](https://jitpack.io/#jenly1314/ZXingLite)
-[![CI](https://img.shields.io/github/actions/workflow/status/jenly1314/ZXingLite/build.yml?logo=github)](https://github.com/jenly1314/ZXingLite/actions/workflows/build.yml)
-[![Download](https://img.shields.io/badge/download-APK-brightgreen?logo=github)](https://raw.githubusercontent.com/jenly1314/ZXingLite/master/app/release/app-release.apk)
+[![CI](https://img.shields.io/github/actions/workflow/status/Lanlan13-14/ZXingLite/build.yml?branch=main&logo=github)](https://github.com/Lanlan13-14/ZXingLite/actions/workflows/build.yml)
+[![Release](https://img.shields.io/github/v/release/Lanlan13-14/ZXingLite?logo=github)](https://github.com/Lanlan13-14/ZXingLite/releases)
 [![API](https://img.shields.io/badge/API-23%2B-brightgreen?logo=android)](https://developer.android.com/guide/topics/manifest/uses-sdk-element#ApiLevels)
-[![License](https://img.shields.io/github/license/jenly1314/ZXingLite?logo=open-source-initiative)](https://opensource.org/licenses/apache-2-0)
+[![License](https://img.shields.io/github/license/Lanlan13-14/ZXingLite?logo=open-source-initiative)](https://opensource.org/licenses/apache-2-0)
 
+**ZXingX** 是基于 [jenly1314/ZXingLite](https://github.com/jenly1314/ZXingLite) 的 **现代化修改版** 示例应用。
 
-ZXingLite for Android 是ZXing的精简极速版，基于ZXing库优化扫码和生成二维码/条形码功能，扫码界面完全支持自定义；使用ZXingLite可快速实现扫码识别相关功能。
+保留上游扫码 / 生成能力，重做 App 视觉与结果页，并提供可写版本号的 GitHub Actions 编译与发布流程。
 
-> 简单如斯，你不试试？
+当前默认版本：**v1.0.0**  
+应用显示名：**ZXingX**
 
-## 效果展示
-![Image](GIF.gif)
+## 本版改动
 
-> 你也可以直接下载 [演示App](https://raw.githubusercontent.com/jenly1314/ZXingLite/master/app/release/app-release.apk) 体验效果
+1. **扫描结果页**  
+   识别成功后进入独立页面，不再使用 Toast：
+   - 顶栏：关闭 / 标题「扫描结果」/ 确认
+   - 正文：完整文本（可选中）
+   - 底部：复制、分享；`http(s)` 链接额外提供打开
 
-## 引入
+2. **现代化 UI + 深色模式**  
+   - Material 3 DayNight  
+   - 分组列表、系统蓝强调色、统一 24dp 矢量图标  
+   - 深色模式：正文使用柔和灰（`#D1D1D6`），避免纯白刺眼；图标略亮于正文  
+   - 浅色 / 深色完整 token
 
-### Gradle:
+3. **品牌**  
+   - 应用名：ZXingX  
+   - 启动图标按设计稿（取景框四角 + QR 定位块 + 蓝色扫描线）生成全密度资源
 
-1. 在Project的 **build.gradle** 或 **setting.gradle** 中添加远程仓库
+4. **CI / Release**  
+   - `Build`：自动 `assembleDebug`  
+   - `Release`：手动输入版本号（默认 `v1.0.0`），写入版本后打包并创建 GitHub Release
 
-    ```gradle
-    repositories {
-        //...
-        mavenCentral()
-    }
-    ```
+浏览器预览：[preview/ui-preview.html](preview/ui-preview.html)  
+图标源文件：[design/zxingx_icon.svg](design/zxingx_icon.svg)
 
-2. 在Module的 **build.gradle** 中添加依赖项
+## 引入（库）
 
-    ```gradle
-    implementation 'com.github.jenly1314:zxing-lite:3.5.0'
-    ```
+模块 `zxing-lite` 仍可被依赖。稳定上游坐标示例：
 
-### 温馨提示
+```gradle
+implementation 'com.github.jenly1314:zxing-lite:3.5.0'
+```
 
-#### 关于ZXingLite版本与编译的SDK版本要求
-
-> 使用 **v3.4.0** 及以上版本时，要求 **compileSdk ≥ 35**
-
-> 使用 **v3.1.0** 及以上版本时，要求 **compileSdk ≥ 34**
-
-> 使用 **v3.0.0** 及以上版本时，要求 **compileSdk ≥ 33**
-
-> 如果 **compileSdk < 33** 请使用 [**v2.x版本**](https://github.com/jenly1314/ZXingLite/tree/2.x/)
+> v3.4.0+ 要求 **compileSdk >= 35**。
 
 ## 使用
 
-### 版本变化说明
-
-#### 3.x版本的变化
-
-从 **2.x** 到 **3.x** 主要变化如下：
-
-* 2.x版本中的 **CameraScan** 相关核心类被移除了；
-> 从3.0.0版本开始改为依赖 [CameraScan](https://github.com/jenly1314/CameraScan)；（[CameraScan](https://github.com/jenly1314/CameraScan)是一个独立的库，单独进行维护）
-
-* 2.x版本中的 **ViewfinderView** 被移除了；
-> 从3.0.0版本开始改为依赖 [ViewfinderView](https://github.com/jenly1314/ViewfinderView)；（[ViewfinderView](https://github.com/jenly1314/ViewfinderView)是一个独立的库，单独进行维护）
-
-* 2.x版本中的 **CaptureActivity** 和 **CaptureFragment** 相关基类被移除了；
-> 从3.0.0版本开始改为 **BarcodeCameraActivity** 和 **BarcodeCameraFragment**
-
-除了以上几点主要差异变化，3.x版本的整体使用方式和2.x基本类似；3.x版本在2.x版本的基础上再次进行重构，将 **CameraScan** 相关的公共基础类从 **ZXingLite** 中移除后，维护起来更方便了。
-
-> 如果你是从 **2.x** 版本升级至 **3.x** 版本，那么你需要知道上面所说的主要差异；特别是独立出去单独维护的库，其包名都有所变化，这一点需要特别注意；请谨慎升级。
-
-> 如果你使用的是2.x版本的话请直接[查看v2.x分支版本](https://github.com/jenly1314/ZXingLite/tree/2.x/)
-
-#### 3.x版本的使用
-
-3.x的实现主要是以 [CameraScan](https://github.com/jenly1314/CameraScan)作为基础库去实现具体的分析检测功能，所以你可以先去看下 [CameraScan](https://github.com/jenly1314/CameraScan)的使用说明；在了解了 [CameraScan](https://github.com/jenly1314/CameraScan)的基本使用方式后，然后再结合当前的使用说明就可以轻松的集成并使用 **ZXingLite** 了。
-
-### 主要类说明
-
-#### 关于Analyzer的实现类
-
-内部提供了Analyzer对应的实现，都是为快速实现扫码识别而提供的分析器。
-
-内部提供的分析器有多个；一般情况下，你只需要知道最终实现的 [**MultiFormatAnalyzer**](zxing-lite/src/main/kotlin/com/king/zxing/analyze/MultiFormatAnalyzer.kt) 和 [**QRCodeAnalyzer**](zxing-lite/src/main/kotlin/com/king/zxing/analyze/QRCodeAnalyzer.kt) 即可：
-
-**MultiFormatAnalyzer** 和 **QRCodeAnalyzer** 的主要区别，从名字大概就能看的出来；一个是可识别多种格式，一个是只识别二维码（具体需要支持识别哪些格式的条码，其实还要看提供的 **DecodeConfig** 是怎么配置的）。
-
-> 本可以不需要 **QRCodeAnalyzer**，之所以提供一个 **QRCodeAnalyzer** 是因为有很多需求是只需要识别二维码就行；如果你有连续扫码的需求或不知道怎么选时，推荐直接选择 **MultiFormatAnalyzer** 。
-
-#### 关于DecodeConfig
-
-DecodeConfig：解码配置；主要用于在扫码识别时，提供一些配置，便于扩展。通过配置可决定内置分析器的能力，从而间接的控制并简化扫码识别的流程。一般在使用 **Analyzer** 的实现类时，你可能会用到。
-
-#### 关于DecodeFormatManager
-
-DecodeConfig：解码格式管理器；主要将多种条码格式进行划分与归类，便于提供快捷配置。
-
-#### 关于CodeUtils
-
-工具类 **CodeUtils** 中主要提供；解析条形码/二维码、生成条形码/二维码相关的能力。
-
-CodeUtils的使用示例
+### 扫描结果页
 
 ```kotlin
-
-    // 生成二维码
-    CodeUtils.createQRCode(content,600,logo)
-    // 生成条形码
-    CodeUtils.createBarCode(content, BarcodeFormat.CODE_128,800,200)
-    // 解析条形码/二维码
-    CodeUtils.parseCode(bitmap)
-    // 解析二维码
-    CodeUtils.parseQRCode(bitmap)
+val intent = ScanResultActivity.createIntent(this, resultText)
+startActivity(intent)
 ```
 
-#### 关于BarcodeCameraScanActivity
-
-通过继承BarcodeCameraScanActivity实现扫二维码完整示例
+### 扫码 Activity 示例
 
 ```kotlin
 class QRCodeScanActivity : BarcodeCameraScanActivity() {
 
     override fun initCameraScan(cameraScan: CameraScan<Result>) {
         super.initCameraScan(cameraScan)
-        // 根据需要设置CameraScan相关配置
         cameraScan.setPlayBeep(true)
     }
 
     override fun createAnalyzer(): Analyzer<Result>? {
-        //初始化解码配置
         val decodeConfig = DecodeConfig()
-        decodeConfig.setHints(DecodeFormatManager.QR_CODE_HINTS) // 如果只有识别二维码的需求，这样设置效率会更高，不设置默认为DecodeFormatManager.DEFAULT_HINTS
-            .setFullAreaScan(false) // 设置是否全区域识别，默认false
-            .setAreaRectRatio(0.8f) // 设置识别区域比例，默认0.8，设置的比例最终会在预览区域裁剪基于此比例的一个矩形进行扫码识别
-            .setAreaRectVerticalOffset(0) // 设置识别区域垂直方向偏移量，默认为0，为0表示居中，可以为负数
-            .setAreaRectHorizontalOffset(0) // 设置识别区域水平方向偏移量，默认为0，为0表示居中，可以为负数
-
-        // BarcodeCameraScanActivity默认使用的MultiFormatAnalyzer，这里也可以改为使用QRCodeAnalyzer
+            .setHints(DecodeFormatManager.QR_CODE_HINTS)
+            .setFullAreaScan(false)
+            .setAreaRectRatio(0.8f)
         return MultiFormatAnalyzer(decodeConfig)
     }
 
-    /**
-     * 布局ID；通过覆写此方法可以自定义布局
-     *
-     * @return 布局ID
-     */
-    override fun getLayoutId(): Int {
-        return R.layout.activity_qrcode_scan
-    }
-
     override fun onScanResultCallback(result: AnalyzeResult<Result>) {
-        // 停止分析
         cameraScan.setAnalyzeImage(false)
-        // 返回结果
         val intent = Intent()
         intent.putExtra(CameraScan.SCAN_RESULT, result.result.text)
         setResult(RESULT_OK, intent)
         finish()
     }
 }
-
 ```
 
-> **BarcodeCameraScanFragment** 的使用方式与之类似。
+### CodeUtils
 
-更多使用详情，请查看[app](app)中的源码使用示例或直接查看[API帮助文档](https://jenly1314.github.io/ZXingLite/api/)
-
-### 其他
-
-#### JDK版本与API脱糖
-
-当使用ZXingLite为 **v2.3.0 ~ v3.0.1** 之间版本时，（即：使用的zxing为v3.5.1版本时）；如果要兼容Android 7.0 (N) 以下版本（即：minSdk<24），可通过脱糖获得 Java 8 及更高版本 API。
-
-```gradle
-compileOptions {
-    // Flag to enable support for the new language APIs
-    coreLibraryDesugaringEnabled true
-    // Sets Java compatibility to Java 11
-    targetCompatibility JavaVersion.VERSION_11
-    sourceCompatibility JavaVersion.VERSION_11
-}
-
+```kotlin
+CodeUtils.createQRCode(content, 600, logo)
+CodeUtils.createBarCode(content, BarcodeFormat.CODE_128, 800, 200)
+CodeUtils.parseCode(bitmap)
+CodeUtils.parseQRCode(bitmap)
 ```
 
-```gradle
-dependencies {
-    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:1.2.3'
-}
+更多库能力见上游与 [CameraScan](https://github.com/jenly1314/CameraScan)。
+
+## 本地构建
+
+```bash
+./gradlew :app:assembleDebug
+./gradlew :app:assembleRelease
 ```
 
-> ZXingLite **v3.1.0** 以后版本（无需脱糖），因为zxing **v3.5.2** 又恢复了与旧版 JDK 的兼容性；详情见：[zxing-3.5.2](https://github.com/zxing/zxing/releases/tag/zxing-3.5.2)
+版本号（`gradle.properties`）：
 
-#### [常见问题解答](https://github.com/jenly1314/ZXingLite/issues/69#issue-529829908)
+```properties
+VERSION_NAME=1.0.0
+VERSION_CODE=1
+```
 
-## 相关推荐
+重新生成启动图标：
 
-- [MLKit](https://github.com/jenly1314/MLKit) 一个强大易用的工具包。通过ML Kit您可以很轻松的实现文字识别、条码识别、图像标记、人脸检测、对象检测等功能。
-- [WeChatQRCode](https://github.com/jenly1314/WeChatQRCode) 基于OpenCV开源的微信二维码引擎移植的扫码识别库。
-- [CameraScan](https://github.com/jenly1314/CameraScan) 一个简化扫描识别流程的通用基础库。
-- [ViewfinderView](https://github.com/jenly1314/ViewfinderView) ViewfinderView一个取景视图：主要用于渲染扫描相关的动画效果。
-- [LibYuv](https://github.com/jenly1314/libyuv) 基于Google的libyuv编译封装的YUV转换工具库，主要用途是在各种YUV与RGB之间进行相互转换、裁减、旋转、缩放、镜像等。
-- [LogX](https://github.com/jenly1314/LogX) 一个轻量而强大的日志框架；好用不解释。
+```bash
+python3 scripts/generate_zxingx_icons.py
+```
 
-<!-- end -->
+Release 默认使用 debug 签名以便 CI 无密钥安装；生产请替换 `app/build.gradle.kts` 中的签名配置。
+
+## GitHub Actions
+
+### Build
+
+`.github/workflows/build.yml` — push / PR 到 `main` 或 `master` 时编译 debug APK。
+
+### Release（可写版本号）
+
+`.github/workflows/release.yml` — Actions 中手动运行：
+
+| 参数 | 说明 | 默认 |
+| --- | --- | --- |
+| `version` | 标签，如 `v1.0.0` 或 `1.0.0` | `v1.0.0` |
+| `release_notes` | 说明（Markdown） | 空 |
+| `prerelease` | 预发布 | `false` |
+
+流程：规范化版本 → 写入 `VERSION_NAME` / `VERSION_CODE` → `assembleRelease` → GitHub Release，附件 `ZXingX-vX.Y.Z.apk`。
+
+`versionCode = major * 10000 + minor * 100 + patch`（`1.2.3` → `10203`）。
+
+## 静态校验
+
+```bash
+python3 scripts/validate_ui_resources.py
+python3 scripts/run_scan_result_tests.py
+```
+
+## 相关
+
+- 上游：[jenly1314/ZXingLite](https://github.com/jenly1314/ZXingLite)
+- [CameraScan](https://github.com/jenly1314/CameraScan)
+- [ViewfinderView](https://github.com/jenly1314/ViewfinderView)
 
 ## 版本日志
 
-#### v3.5.0：2026-6-16
-- 迁移：所有 Java 代码已转为 Kotlin 实现
-- 更新CameraScan至v1.5.0
+#### v1.0.0
 
-#### [查看更多版本日志](CHANGELOG.md)
+- 产品名 ZXingX；启动图标按设计稿重制
+- 扫描结果独立页；现代化 UI 与深色模式（柔和灰正文）
+- 自包含 Build / Release Actions（默认 `v1.0.0`）
 
----
+#### 上游 v3.5.0
 
-![footer](https://jenly1314.github.io/page/footer.svg)
+- 见 [CHANGELOG.md](CHANGELOG.md)
 
+## License
+
+```text
+Copyright 2018 Jenly Yu
+Copyright 2026 Lanlan13-14 (ZXingX modernization fork)
+
+Licensed under the Apache License, Version 2.0
+```

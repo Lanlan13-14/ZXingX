@@ -17,14 +17,11 @@ package com.king.zxing.app
 
 import android.annotation.SuppressLint
 import android.content.Intent
-import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
 import android.view.View
-import android.widget.Button
-import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -46,20 +43,24 @@ import kotlinx.coroutines.withContext
  */
 class MainActivity : AppCompatActivity() {
 
-    private var toast: Toast? = null
     private lateinit var scanLauncher: ActivityResultLauncher<Intent>
     private lateinit var photoPickerLauncher: ActivityResultLauncher<String>
+    private lateinit var resultLauncher: ActivityResultLauncher<Intent>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        resultLauncher = registerForActivityResult(
+            ActivityResultContracts.StartActivityForResult()
+        ) { /* result page is terminal UI; no further action required */ }
 
         scanLauncher = registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) { result ->
             if (result.resultCode == RESULT_OK) {
                 val text = CameraScan.parseScanResult(result.data)
-                showToast(text)
+                openScanResult(text)
             }
         }
 
@@ -69,10 +70,14 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
-    private fun showToast(text: String?) {
-        toast?.cancel()
-        toast = Toast.makeText(this, text.toString(), Toast.LENGTH_SHORT)
-        toast?.show()
+    private fun openScanResult(text: String?) {
+        val intent = ScanResultActivity.createIntent(this, text)
+        val options = ActivityOptionsCompat.makeCustomAnimation(
+            this,
+            R.anim.slide_in_right,
+            R.anim.slide_out_left
+        )
+        resultLauncher.launch(intent, options)
     }
 
     private fun parsePhoto(uri: Uri?) {
@@ -83,11 +88,12 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             try {
                 val result = withContext(Dispatchers.IO) {
+                    @Suppress("DEPRECATION")
                     val bitmap = MediaStore.Images.Media.getBitmap(contentResolver, uri)
                     CodeUtils.parseCode(bitmap)
                 }
                 Log.d(TAG, "result:$result")
-                showToast(result)
+                openScanResult(result)
             } catch (e: Exception) {
                 LogX.w(e)
             }
@@ -95,7 +101,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startScan(cls: Class<*>) {
-        val optionsCompat = ActivityOptionsCompat.makeCustomAnimation(this, R.anim.`in`, R.anim.out)
+        val optionsCompat = ActivityOptionsCompat.makeCustomAnimation(
+            this,
+            R.anim.slide_in_right,
+            R.anim.slide_out_left
+        )
         val intent = Intent(this, cls)
         scanLauncher.launch(intent, optionsCompat)
     }
@@ -104,7 +114,14 @@ class MainActivity : AppCompatActivity() {
         val intent = Intent(this, CodeActivity::class.java)
         intent.putExtra(KEY_IS_QR_CODE, isQRCode)
         intent.putExtra(KEY_TITLE, title)
-        startActivity(intent)
+        startActivity(
+            intent,
+            ActivityOptionsCompat.makeCustomAnimation(
+                this,
+                R.anim.slide_in_right,
+                R.anim.slide_out_left
+            ).toBundle()
+        )
     }
 
     @SuppressLint("NonConstantResourceId")
@@ -114,8 +131,14 @@ class MainActivity : AppCompatActivity() {
             R.id.btnQRCode -> startScan(QRCodeScanActivity::class.java)
             R.id.btnFullQRCode -> startScan(FullScreenQRCodeScanActivity::class.java)
             R.id.btnPickPhoto -> photoPickerLauncher.launch("image/*")
-            R.id.btnGenerateQrCode -> startGenerateCodeActivity(true, (v as Button).text.toString())
-            R.id.btnGenerateBarcode -> startGenerateCodeActivity(false, (v as Button).text.toString())
+            R.id.btnGenerateQrCode -> startGenerateCodeActivity(
+                true,
+                getString(R.string.action_generate_qr)
+            )
+            R.id.btnGenerateBarcode -> startGenerateCodeActivity(
+                false,
+                getString(R.string.action_generate_barcode)
+            )
         }
     }
 
