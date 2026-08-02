@@ -239,7 +239,7 @@ class EdgeSwipeBackController private constructor(
                         computeCurrentVelocity(1000)
                     }
                     val velocity = (velocityTracker?.xVelocity ?: 0f) * direction
-                    val projected = progress + velocity / max(1f, surface.width) * 0.18f
+                    val projected = progress + velocity / max(1f, surface.width.toFloat()) * 0.18f
                     tracking = false
                     velocityTracker?.recycle()
                     velocityTracker = null
