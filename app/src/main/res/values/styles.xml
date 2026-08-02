@@ -20,6 +20,11 @@
         <item name="materialAlertDialogTheme">@style/ThemeOverlay.App.MaterialAlertDialog</item>
     </style>
 
+    <!-- Intermediate parents required by dotted style names (AAPT linking) -->
+    <style name="ThemeOverlay.App" parent="ThemeOverlay.Material3" />
+    <style name="TextAppearance.App" parent="TextAppearance.Material3.BodyLarge" />
+    <style name="Widget.App" parent="android:Widget" />
+
     <style name="ThemeOverlay.App.MaterialAlertDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="colorSurface">@color/colorSurface</item>
@@ -31,7 +36,7 @@
         <item name="android:onClick">onClick</item>
     </style>
 
-    <style name="TextAppearance.App.LargeTitle">
+    <style name="TextAppearance.App.LargeTitle" parent="TextAppearance.App">
         <item name="android:textSize">@dimen/size_34sp</item>
         <item name="android:textColor">@color/colorTextPrimary</item>
         <item name="android:textStyle">bold</item>
@@ -39,27 +44,27 @@
         <item name="android:fontFamily">sans-serif-medium</item>
     </style>
 
-    <style name="TextAppearance.App.Title">
+    <style name="TextAppearance.App.Title" parent="TextAppearance.App">
         <item name="android:textSize">@dimen/size_17sp</item>
         <item name="android:textColor">@color/colorTextPrimary</item>
         <item name="android:textStyle">bold</item>
         <item name="android:fontFamily">sans-serif-medium</item>
     </style>
 
-    <style name="TextAppearance.App.Body">
+    <style name="TextAppearance.App.Body" parent="TextAppearance.App">
         <item name="android:textSize">@dimen/size_17sp</item>
         <item name="android:textColor">@color/colorTextPrimary</item>
         <item name="android:lineSpacingMultiplier">1.25</item>
         <item name="android:fontFamily">sans-serif</item>
     </style>
 
-    <style name="TextAppearance.App.Caption">
+    <style name="TextAppearance.App.Caption" parent="TextAppearance.App">
         <item name="android:textSize">@dimen/size_13sp</item>
         <item name="android:textColor">@color/colorTextSecondary</item>
         <item name="android:fontFamily">sans-serif</item>
     </style>
 
-    <style name="TextAppearance.App.SectionHeader">
+    <style name="TextAppearance.App.SectionHeader" parent="TextAppearance.App">
         <item name="android:textSize">@dimen/size_13sp</item>
         <item name="android:textColor">@color/colorTextSecondary</item>
         <item name="android:textAllCaps">true</item>
@@ -67,7 +72,7 @@
         <item name="android:fontFamily">sans-serif-medium</item>
     </style>
 
-    <style name="Widget.App.ActionRow">
+    <style name="Widget.App.ActionRow" parent="Widget.App">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:minHeight">@dimen/action_row_height</item>
@@ -81,7 +86,7 @@
         <item name="android:onClick">onClick</item>
     </style>
 
-    <style name="Widget.App.IconButton">
+    <style name="Widget.App.IconButton" parent="Widget.App">
         <item name="android:layout_width">@dimen/icon_button_size</item>
         <item name="android:layout_height">@dimen/icon_button_size</item>
         <item name="android:background">@drawable/bg_icon_button</item>

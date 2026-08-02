@@ -106,6 +106,16 @@ def main() -> int:
         ok("AppTheme uses Material3 DayNight")
     else:
         fail("AppTheme is not Material3 DayNight")
+    # Dotted style names require intermediate parents for AAPT linking
+    for required_style in (
+        'name="TextAppearance.App"',
+        'name="Widget.App"',
+        'name="ThemeOverlay.App"',
+    ):
+        if required_style in styles:
+            ok(f"styles has intermediate parent {required_style}")
+        else:
+            fail(f"styles missing intermediate parent {required_style}")
 
     night_styles = (RES / "values-night" / "styles.xml").read_text(encoding="utf-8")
     if 'android:windowLightStatusBar">false' in night_styles:
