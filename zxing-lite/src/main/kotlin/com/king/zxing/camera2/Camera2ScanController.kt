@@ -125,8 +125,12 @@ internal class Camera2ScanController(
 
     fun setAnalyzeImage(enabled: Boolean) { analyze = enabled }
     fun isTorchEnabled(): Boolean = torch
-    fun hasFlashUnit(): Boolean = currentCharacteristics()
-        ?.get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
+    fun hasFlashUnit(): Boolean {
+        val openId = currentBinding?.openCameraId ?: return false
+        return runCatching { manager.getCameraCharacteristics(openId) }
+            .getOrNull()
+            ?.get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
+    }
 
     fun enableTorch(enabled: Boolean) {
         torch = enabled && hasFlashUnit()
@@ -210,13 +214,28 @@ internal class Camera2ScanController(
         binding: Camera2LensDiscovery.Binding,
         token: Int
     ) {
-        val chars = runCatching { manager.getCameraCharacteristics(binding.physicalCameraId ?: binding.openCameraId) }
-            .getOrElse { manager.getCameraCharacteristics(binding.openCameraId) }
-        val map = chars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
-            ?: return tryNextBinding(token, "no stream map")
-        previewSize = chooseSize(map.getOutputSizes(SurfaceTexture::class.java), 1920 * 1080)
-        val analysisSize = chooseSize(map.getOutputSizes(ImageFormat.YUV_420_888), 1280 * 720)
-        sensorOrientation = chars.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 90
+        val logicalChars = runCatching { manager.getCameraCharacteristics(binding.openCameraId) }
+            .getOrElse { return tryNextBinding(token, "logical characteristics: ${it.message}") }
+        val lensChars = binding.physicalCameraId?.let { id ->
+            runCatching { manager.getCameraCharacteristics(id) }.getOrNull()
+        } ?: logicalChars
+        val logicalMap = logicalChars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+            ?: return tryNextBinding(token, "no logical stream map")
+        val lensMap = lensChars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+            ?: logicalMap
+        previewSize = chooseCompatibleSize(
+            logicalMap.getOutputSizes(SurfaceTexture::class.java),
+            lensMap.getOutputSizes(SurfaceTexture::class.java),
+            1920 * 1080
+        )
+        val analysisSize = chooseCompatibleSize(
+            logicalMap.getOutputSizes(ImageFormat.YUV_420_888),
+            lensMap.getOutputSizes(ImageFormat.YUV_420_888),
+            1280 * 720
+        )
+        sensorOrientation = lensChars.get(CameraCharacteristics.SENSOR_ORIENTATION)
+            ?: logicalChars.get(CameraCharacteristics.SENSOR_ORIENTATION)
+            ?: 90
         val surfaceTexture = textureView.surfaceTexture ?: return
         surfaceTexture.setDefaultBufferSize(previewSize.width, previewSize.height)
         configureTransform()
@@ -459,14 +478,17 @@ internal class Camera2ScanController(
 
     private fun selectLensIndex(zoom: Float): Int {
         if (lenses.size <= 1) return 0
-        var selected = 0
-        for (index in 0 until lenses.lastIndex) {
-            val left = lenses[index].ratio.coerceAtLeast(0.01f)
-            val right = lenses[index + 1].ratio.coerceAtLeast(left)
-            // Geometric midpoint is stable for optical ratios (0.5↔1 => 0.707,
-            // 1↔3.2 => 1.789) and avoids switching tele immediately after 1x.
-            val boundary = kotlin.math.sqrt((left * right).toDouble()).toFloat()
-            if (zoom >= boundary) selected = index + 1 else break
+        var selected = lensIndex.coerceIn(0, lenses.lastIndex)
+        // Switch near each lens' intrinsic optical ratio, not at the midpoint.
+        // Small asymmetric hysteresis prevents boundary oscillation while keeping
+        // effective FOV continuous (e.g. main 3.1x -> tele 1.0x at a 3.2x lens).
+        while (selected < lenses.lastIndex) {
+            val nextRatio = lenses[selected + 1].ratio
+            if (zoom >= nextRatio * 0.97f) selected++ else break
+        }
+        while (selected > 0) {
+            val currentRatio = lenses[selected].ratio
+            if (zoom < currentRatio * 0.93f) selected-- else break
         }
         return selected
     }
@@ -503,7 +525,9 @@ internal class Camera2ScanController(
         ?.coerceAtLeast(1f) ?: 1f
 
     private fun currentCharacteristics(): CameraCharacteristics? {
-        val id = currentBinding?.physicalCameraId ?: currentBinding?.openCameraId ?: return null
+        // CaptureRequest keys are validated by the opened CameraDevice (logical parent
+        // for physical outputs), so zoom/crop/flash limits must come from openCameraId.
+        val id = currentBinding?.openCameraId ?: return null
         return runCatching { manager.getCameraCharacteristics(id) }.getOrNull()
     }
 
@@ -534,10 +558,22 @@ internal class Camera2ScanController(
         }
     }
 
-    private fun chooseSize(sizes: Array<Size>?, targetArea: Int): Size {
-        val valid = sizes.orEmpty().filter { it.width > 0 && it.height > 0 }
-        if (valid.isEmpty()) return Size(1280, 720)
-        return valid.minByOrNull { abs(it.width * it.height - targetArea) } ?: valid.first()
+    private fun chooseCompatibleSize(
+        logicalSizes: Array<Size>?,
+        lensSizes: Array<Size>?,
+        targetArea: Int
+    ): Size {
+        val logical = logicalSizes.orEmpty().filter { it.width > 0 && it.height > 0 }
+        val lensKeys = lensSizes.orEmpty().map { it.width to it.height }.toSet()
+        val common = logical.filter { (it.width to it.height) in lensKeys }
+        val candidates = common.ifEmpty { lensSizes.orEmpty().filter { it.width > 0 && it.height > 0 } }
+        if (candidates.isEmpty()) return Size(1280, 720)
+        return candidates.minByOrNull { size ->
+            val areaPenalty = abs(size.width * size.height - targetArea).toLong()
+            val ratio = size.width.toFloat() / size.height.coerceAtLeast(1)
+            val ratioPenalty = (abs(ratio - 16f / 9f) * targetArea).toLong()
+            areaPenalty + ratioPenalty
+        } ?: candidates.first()
     }
 
     private fun closeSessionAndReader() {

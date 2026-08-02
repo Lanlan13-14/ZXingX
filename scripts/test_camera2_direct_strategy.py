@@ -23,7 +23,8 @@ checks = {
     'preview transition cover': 'freezeFrame' in controller and 'fadeFrozenFrame' in controller,
     'first preview frame gate': 'onSurfaceTextureUpdated' in controller and 'firstFrameCount >= 2' in controller,
     'binding fallback': 'tryNextBinding(token' in controller and 'lastWorkingLensIndex' in controller,
-    'geometric lens boundary': 'selectLensIndex' in controller and 'sqrt((left * right).toDouble())' in controller,
+    'intrinsic lens boundary': 'selectLensIndex' in controller and 'nextRatio * 0.97f' in controller and 'currentRatio * 0.93f' in controller,
+    'physical stream size intersection': 'chooseCompatibleSize' in controller and 'lensMap.getOutputSizes' in controller,
     'camera ID diagnostics': 'Camera2 open attempt' in controller and 'Camera2 first frames' in controller,
     'app migrated to camera2': all('Camera2BarcodeScanActivity' in p.read_text() for p in activities),
 }
