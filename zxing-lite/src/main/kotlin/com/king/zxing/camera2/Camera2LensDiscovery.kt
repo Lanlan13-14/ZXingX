@@ -66,7 +66,11 @@ internal class Camera2LensDiscovery(
                 ?: parent?.let { characteristics(it)?.get(CameraCharacteristics.LENS_FACING) }
             if (facing != CameraCharacteristics.LENS_FACING_BACK) return@forEach
             if (!supportsPreviewAndAnalysis(chars)) return@forEach
-            val focal = focal35mm(chars).takeIf { it > 0f } ?: return@forEach
+            val measuredFocal = focal35mm(chars).takeIf { it > 0f } ?: return@forEach
+            // A logical multi-camera ID represents the HAL's normal/main view at 1x;
+            // its focal-length array can contain several child focals and must not be
+            // interpreted as a dedicated ultra-wide/tele lens.
+            val focal = if (isLogical(chars) && parent == null) default35mm else measuredFocal
             val bindings = buildList {
                 parent?.let { add(Binding(it, id)) }
                 if (id in publicSet || canOpenDirectly(id)) add(Binding(id, null))
@@ -188,7 +192,13 @@ internal class Camera2LensDiscovery(
                 merged += lens
             } else {
                 val old = merged[index]
-                merged[index] = old.copy(bindings = (old.bindings + lens.bindings).distinct())
+                val bindings = (old.bindings + lens.bindings)
+                    .distinct()
+                    .sortedWith(
+                        compareByDescending<Binding> { it.physicalCameraId != null }
+                            .thenBy { it.openCameraId == old.id }
+                    )
+                merged[index] = old.copy(bindings = bindings)
             }
         }
         return merged

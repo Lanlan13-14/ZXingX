@@ -14,6 +14,8 @@ checks = {
     'bounded hidden ID probing': 'val ranges = listOf(0..9, 20..29, 40..49, 80..89, 100..119)' in discovery and 'consecutiveMisses >= 6' in discovery,
     'logical physical discovery': 'physicalCameraIds' in discovery,
     'physical binding model': 'physicalCameraId: String?' in discovery,
+    'logical camera is main 1x': 'isLogical(chars) && parent == null' in discovery,
+    'physical binding priority': 'compareByDescending<Binding> { it.physicalCameraId != null }' in discovery,
     'stable reference main': 'it.first == "0"' in discovery and 'isLogical(chars)' in discovery,
     '35mm equivalent focal': '43.2666f' in discovery,
     'direct camera open': 'manager.openCamera(binding.openCameraId' in controller,
