@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pure model tests for PhysicalLensStrategy."""
+"""Pure tests for generic CameraX lens selection/binding strategy."""
 
 from __future__ import annotations
 
@@ -12,17 +12,27 @@ class Lens:
     id: str
     score: float
     ratio: float
+    bindings: tuple[str, ...]
 
 
-def normalized(raw: list[tuple[str, float]], logical: float | None) -> list[Lens]:
-    valid = sorted({i: s for i, s in raw if i and s > 0 and math.isfinite(s)}.items(), key=lambda x: x[1])
+def normalized(raw: list[tuple[str, float, list[str]]], logical: float | None) -> list[Lens]:
+    grouped: dict[str, list[tuple[float, list[str]]]] = {}
+    for stable_id, score, bindings in raw:
+        if stable_id and score > 0 and math.isfinite(score) and bindings:
+            grouped.setdefault(stable_id, []).append((score, bindings))
+    valid = []
+    for stable_id, rows in grouped.items():
+        score = sum(r[0] for r in rows) / len(rows)
+        bindings = tuple(dict.fromkeys(x for row in rows for x in row[1]))
+        valid.append((stable_id, score, bindings))
+    valid.sort(key=lambda x: x[1])
     if not valid:
         return []
     if logical and logical > 0 and math.isfinite(logical):
         main = min(valid, key=lambda x: abs(math.log(x[1] / logical)))[1]
     else:
         main = valid[len(valid) // 2][1]
-    return [Lens(i, s, s / main) for i, s in valid]
+    return [Lens(i, s, s / main, b) for i, s, b in valid]
 
 
 def select(lenses: list[Lens], zoom: float) -> Lens | None:
@@ -47,21 +57,25 @@ def check(name: str, ok: bool) -> int:
 
 def main() -> int:
     failed = 0
-    lenses = normalized([('uw', 0.45), ('main', 1.0), ('tele', 3.2)], 1.0)
+    lenses = normalized([
+        ('lens:uw', 0.45, ['physical:logical0/uw']),
+        ('lens:uw', 0.45, ['exact:uw']),
+        ('lens:main', 1.0, ['physical:logical0/main']),
+        ('lens:tele', 3.2, ['physical:logical0/tele', 'exact:tele']),
+    ], 1.0)
     failed += check('ratios', [round(x.ratio, 2) for x in lenses] == [0.45, 1.0, 3.2])
-    failed += check('0.5 selects ultra-wide', select(lenses, 0.5).id == 'uw')
-    failed += check('1.0 selects main', select(lenses, 1.0).id == 'main')
-    failed += check('2.0 remains main + digital', select(lenses, 2.0).id == 'main')
-    failed += check('3.2 selects tele', select(lenses, 3.2).id == 'tele')
+    failed += check('merges physical and exact bindings', lenses[0].bindings == ('physical:logical0/uw', 'exact:uw'))
+    failed += check('0.5 selects ultra-wide', select(lenses, 0.5).id == 'lens:uw')
+    failed += check('1.0 selects main', select(lenses, 1.0).id == 'lens:main')
+    failed += check('2.0 remains main + digital', select(lenses, 2.0).id == 'lens:main')
+    failed += check('3.2 selects tele', select(lenses, 3.2).id == 'lens:tele')
     failed += check('tele local 1x', abs(local(lenses[2], 3.2) - 1.0) < 1e-6)
-    failed += check('tele local 2x at virtual 6.4', abs(local(lenses[2], 6.4) - 2.0) < 1e-6)
-    fallback = normalized([('a', 0.6), ('b', 1.2), ('c', 4.8)], None)
-    failed += check('median fallback is main', [round(x.ratio, 2) for x in fallback] == [0.5, 1.0, 4.0])
-    failed += check('dedupe ids', len(normalized([('a', 1.0), ('a', 2.0)], 1.0)) == 1)
+    failed += check('tele local 2x', abs(local(lenses[2], 6.4) - 2.0) < 1e-6)
+    fallback = normalized([('a', .6, ['a']), ('b', 1.2, ['b']), ('c', 4.8, ['c'])], None)
+    failed += check('median fallback main', [round(x.ratio, 2) for x in fallback] == [.5, 1.0, 4.0])
     print(f'\n{9 - failed}/9 passed')
     return 1 if failed else 0
 
 
 if __name__ == '__main__':
     raise SystemExit(main())
-                                                                             

@@ -10,6 +10,7 @@ import com.king.view.viewfinderview.ViewfinderView
 import com.king.zxing.analyze.MultiFormatAnalyzer
 import com.king.zxing.config.LogicalMultiCameraConfig
 import com.king.zxing.config.PhysicalLensController
+import com.king.zxing.gesture.EdgeSwipeBackController
 
 /**
  * 基于 ZXing 实现的扫码识别 - 相机扫描基类。
@@ -21,6 +22,7 @@ abstract class BarcodeCameraScanActivity : BaseCameraScanActivity<Result>() {
 
     protected var viewfinderView: ViewfinderView? = null
     private var physicalLensController: PhysicalLensController<Result>? = null
+    private var swipeBackController: EdgeSwipeBackController? = null
 
     override fun initUI() {
         val viewfinderViewId = getViewfinderViewId()
@@ -28,11 +30,12 @@ abstract class BarcodeCameraScanActivity : BaseCameraScanActivity<Result>() {
             viewfinderView = findViewById(viewfinderViewId)
         }
         super.initUI()
+        swipeBackController = EdgeSwipeBackController.install(this)
         physicalLensController = PhysicalLensController(
             lifecycleOwner = this,
             previewView = previewView,
             cameraScan = cameraScan,
-            configFactory = { physicalId -> LogicalMultiCameraConfig(this, physicalId) }
+            configFactory = { binding -> LogicalMultiCameraConfig(this, binding) }
         ).also { it.install() }
     }
 

@@ -32,26 +32,28 @@
         <activity
             android:name=".FullScreenQRCodeScanActivity"
             android:screenOrientation="portrait"
-            android:theme="@style/CameraScanTheme" />
+            android:theme="@style/CameraScanTheme.SwipeBack" />
 
         <activity
             android:name=".MultiFormatScanActivity"
             android:screenOrientation="portrait"
-            android:theme="@style/CameraScanTheme" />
+            android:theme="@style/CameraScanTheme.SwipeBack" />
 
         <activity
             android:name=".QRCodeScanActivity"
             android:screenOrientation="portrait"
-            android:theme="@style/CameraScanTheme" />
+            android:theme="@style/CameraScanTheme.SwipeBack" />
 
         <activity
             android:name=".CodeActivity"
             android:screenOrientation="portrait"
+            android:theme="@style/AppTheme.SwipeBack"
             android:windowSoftInputMode="adjustResize" />
 
         <activity
             android:name=".ScanResultActivity"
             android:screenOrientation="portrait"
+            android:theme="@style/AppTheme.SwipeBack"
             android:windowSoftInputMode="stateAlwaysHidden" />
 
         <service

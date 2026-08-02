@@ -20,10 +20,37 @@
         <item name="materialAlertDialogTheme">@style/ThemeOverlay.App.MaterialAlertDialog</item>
     </style>
 
+    <!-- App-owned swipe-back surface: transparent window, no platform transition. -->
+    <style name="AppTheme.SwipeBack" parent="AppTheme">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowIsFloating">false</item>
+        <item name="android:windowDisablePreview">true</item>
+        <item name="android:windowAnimationStyle">@style/Animation.App.None</item>
+    </style>
+
+    <style name="CameraScanTheme.SwipeBack" parent="CameraScanTheme">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowIsFloating">false</item>
+        <item name="android:windowDisablePreview">true</item>
+        <item name="android:windowAnimationStyle">@style/Animation.App.None</item>
+    </style>
+
     <!-- Intermediate parents required by dotted style names (AAPT linking) -->
     <style name="ThemeOverlay.App" parent="ThemeOverlay.Material3" />
     <style name="TextAppearance.App" parent="TextAppearance.Material3.BodyLarge" />
     <style name="Widget.App" parent="android:Widget" />
+    <style name="Animation.App" parent="@android:style/Animation.Activity" />
+
+    <style name="Animation.App.None" parent="Animation.App">
+        <item name="android:activityOpenEnterAnimation">@anim/no_animation</item>
+        <item name="android:activityOpenExitAnimation">@anim/no_animation</item>
+        <item name="android:activityCloseEnterAnimation">@anim/no_animation</item>
+        <item name="android:activityCloseExitAnimation">@anim/no_animation</item>
+    </style>
 
     <style name="ThemeOverlay.App.MaterialAlertDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
         <item name="colorPrimary">@color/colorPrimary</item>

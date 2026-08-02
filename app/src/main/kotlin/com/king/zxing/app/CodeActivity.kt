@@ -23,6 +23,7 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.button.MaterialButton
 import com.google.zxing.BarcodeFormat
+import com.king.zxing.gesture.EdgeSwipeBackController
 import com.king.zxing.util.CodeUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -49,11 +50,13 @@ class CodeActivity : AppCompatActivity() {
 
     private var isQRCode: Boolean = true
     private var generatedBitmap: Bitmap? = null
+    private lateinit var swipeBack: EdgeSwipeBackController
     private var lastContent: String = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.code_activity)
+        swipeBack = EdgeSwipeBackController.install(this)
 
         ivCode = findViewById(R.id.ivCode)
         tvTitle = findViewById(R.id.tvTitle)
@@ -229,7 +232,7 @@ class CodeActivity : AppCompatActivity() {
 
     fun onClick(v: View) {
         when (v.id) {
-            R.id.ivLeft -> onBackPressedDispatcher.onBackPressed()
+            R.id.ivLeft -> swipeBack.requestBack()
         }
     }
 }

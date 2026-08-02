@@ -41,6 +41,7 @@ dependencies {
     androidTestImplementation(libs.androidx.test.espresso)
 
     implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.activity)
     api(libs.zxing.core)
 
     api(libs.viewfinderview)

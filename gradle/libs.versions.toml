@@ -10,6 +10,7 @@ mavenPublish = "0.34.0"
 
 material = "1.13.0"
 appcompat = "1.7.0"
+activity = "1.10.1"
 constraintlayout = "2.1.4"
 lifecycle = "2.8.7"
 coroutines = "1.8.1"
@@ -25,6 +26,7 @@ viewfinderview = "1.4.0"
 [libraries]
 androidx-material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
+androidx-activity = { group = "androidx.activity", name = "activity", version.ref = "activity" }
 androidx-constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycle" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }

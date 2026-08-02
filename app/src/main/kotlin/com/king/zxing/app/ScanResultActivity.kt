@@ -11,6 +11,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
 import com.google.android.material.button.MaterialButton
+import com.king.zxing.gesture.EdgeSwipeBackController
 
 /**
  * 扫描结果页：替代 Toast 小消息提示。
@@ -24,12 +25,14 @@ class ScanResultActivity : AppCompatActivity() {
     private lateinit var btnOpen: MaterialButton
 
     private var resultText: String = ""
+    private lateinit var swipeBack: EdgeSwipeBackController
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_scan_result)
+        swipeBack = EdgeSwipeBackController.install(this)
 
-        // Default result for system back / predictive back. Do not intercept the gesture.
+        // Default result for any cancelled/committed back path.
         setResult(RESULT_CANCELED)
         resultText = intent.getStringExtra(EXTRA_RESULT).orEmpty()
 
@@ -54,7 +57,7 @@ class ScanResultActivity : AppCompatActivity() {
         }
         btnOpen.isVisible = isUrl
 
-        btnClose.setOnClickListener { onBackPressedDispatcher.onBackPressed() }
+        btnClose.setOnClickListener { swipeBack.requestBack() }
         btnConfirm.setOnClickListener { finishWithOk() }
         btnCopy.setOnClickListener { copyResult() }
         btnShare.setOnClickListener { shareResult() }
@@ -63,7 +66,7 @@ class ScanResultActivity : AppCompatActivity() {
 
     private fun finishWithOk() {
         setResult(RESULT_OK)
-        finish()
+        swipeBack.requestBack()
     }
 
     private fun copyResult() {

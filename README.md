@@ -19,7 +19,7 @@
 - 连续扫码 / 仅二维码 / 全屏识别 / 相册识图
 - 生成二维码 / 条形码：可输入任意内容，点生成后出图（二维码中心为 ZXingX 标识），可分享图片
 - 扫描结果页：关闭 / 确认，复制、分享，链接可打开
-- Android 系统预测性返回（跨 Activity 预览，不使用自制假动画）
+- ZXingX 自绘边缘返回：页面跟手缩放、圆角化、取消回弹 / 松手完成；不依赖系统预测性返回动画开关
 - Material 3 浅色与深色模式（深色正文为柔和灰，减轻刺眼）
 - 闪光灯；预览区双指缩放
 - Android 快捷设置「扫一扫」磁贴：点击直接进入连续扫码
@@ -107,14 +107,14 @@ implementation 'com.github.jenly1314:zxing-lite:3.5.0'
 
 ## 相机与多摄
 
-扫码页通过 CameraX / Camera2 标准能力工作：
+扫码页通过 CameraX / Camera2 标准能力工作，不包含厂商或机型硬编码：
 
-1. 绑定后置逻辑多摄。
-2. 使用 `CameraInfo.getPhysicalCameraInfos()` 读取厂商公开的物理镜头。
-3. 根据焦距 / 传感器宽度计算相对视角。
-4. 双指缩放跨过焦段时，通过 `CameraSelector.Builder.setPhysicalCameraId()` 重新绑定目标镜头；剩余倍率交给 `CameraControl.setZoomRatio()`。
+1. 枚举所有后置 `availableCameraInfos`。
+2. 同时读取每个逻辑相机的 `physicalCameraInfos`，覆盖逻辑物理子镜头。
+3. 保留厂商单独公开的后置 Camera ID，覆盖独立副摄路径。
+4. 用焦距 / 传感器宽度计算相对视角，双指跨焦段时先尝试 `setPhysicalCameraId()`，失败再尝试独立 Camera ID，最后回退逻辑相机普通变焦。
 
-没有镜头列表 UI。厂商未向第三方公开物理镜头时，会退回 CameraX 常规变焦，无法强制使用被厂商隐藏的镜头。
+没有镜头列表 UI。Android 不允许第三方强制打开厂商完全隐藏的镜头；这类设备只能使用逻辑相机变焦。
 
 ## CI
 
@@ -161,7 +161,8 @@ python3 scripts/run_scan_result_tests.py
 - 包名改为 `com.lanlan13.zxingx`，可与原版 ZXingLite 共存
 - 扫描结果独立页；现代化 UI 与深色模式
 - 生成页支持输入自定义内容并分享
-- CameraX 物理多摄 + 双指跨焦段切换（无镜头按钮）
+- CameraX 逻辑物理子镜头 + 独立后摄双路径切换（无镜头按钮）
+- ZXingX 自绘边缘返回动画（不依赖系统实验开关）
 - 单一 CI 工作流：自动构建 + 手动发版
 
 上游变更见 [CHANGELOG.md](CHANGELOG.md)。
