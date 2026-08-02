@@ -9,22 +9,18 @@ import com.king.camera.scan.analyze.Analyzer
 import com.king.view.viewfinderview.ViewfinderView
 import com.king.zxing.analyze.MultiFormatAnalyzer
 import com.king.zxing.config.LogicalMultiCameraConfig
+import com.king.zxing.config.PhysicalLensController
 
 /**
- * 基于zxing实现的扫码识别 - 相机扫描基类
- * <p>
- * 通过继承 [BarcodeCameraScanActivity]或[BarcodeCameraScanFragment]可快速实现扫码识别
+ * 基于 ZXing 实现的扫码识别 - 相机扫描基类。
  *
- * @author <a href="mailto:jenly1314@gmail.com">Jenly</a>
- * <p>
- * <a href="https://github.com/jenly1314">Follow me</a>
+ * Uses CameraX logical/physical camera APIs. Pinch gestures switch physical lenses
+ * when the OEM exposes them; no extra lens buttons are added.
  */
 abstract class BarcodeCameraScanActivity : BaseCameraScanActivity<Result>() {
 
-    /**
-     * 扫码框视图；当 [getViewfinderViewId] 返回有效 ID 时会在 [initUI] 中自动绑定。
-     */
     protected var viewfinderView: ViewfinderView? = null
+    private var physicalLensController: PhysicalLensController<Result>? = null
 
     override fun initUI() {
         val viewfinderViewId = getViewfinderViewId()
@@ -32,16 +28,18 @@ abstract class BarcodeCameraScanActivity : BaseCameraScanActivity<Result>() {
             viewfinderView = findViewById(viewfinderViewId)
         }
         super.initUI()
+        physicalLensController = PhysicalLensController(
+            lifecycleOwner = this,
+            previewView = previewView,
+            cameraScan = cameraScan,
+            configFactory = { physicalId -> LogicalMultiCameraConfig(this, physicalId) }
+        ).also { it.install() }
     }
 
-    /**
-     * Prefer the OEM logical multi-camera and keep pinch-to-zoom on.
-     * Zoom ratio is handled by the system (ultra-wide / main / tele when available).
-     * No extra lens-switch UI.
-     */
     override fun initCameraScan(cameraScan: CameraScan<Result>) {
         super.initCameraScan(cameraScan)
-        cameraScan.setNeedTouchZoom(true)
+        // Start with the logical multi-camera. The controller may later bind an explicit
+        // physical camera id while retaining the same PreviewView and analyzer.
         cameraScan.setCameraConfig(LogicalMultiCameraConfig(this))
     }
 
@@ -49,22 +47,13 @@ abstract class BarcodeCameraScanActivity : BaseCameraScanActivity<Result>() {
         return MultiFormatAnalyzer()
     }
 
-    /**
-     * 布局 ID；通过覆写此方法可自定义布局。
-     *
-     * @return 默认返回 [R.layout.zxl_camera_scan]
-     */
     override fun getLayoutId(): Int {
         return R.layout.zxl_camera_scan
     }
 
-    /**
-     * [viewfinderView] 的 ID。
-     *
-     * @return 默认返回 [R.id.viewfinderView]；如果不需要扫码框可返回 [View.NO_ID]
-     */
     @IdRes
     open fun getViewfinderViewId(): Int {
         return R.id.viewfinderView
     }
 }
+                                                                             

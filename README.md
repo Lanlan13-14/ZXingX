@@ -21,7 +21,7 @@
 - 扫描结果页：关闭 / 确认，复制、分享，链接可打开
 - Material 3 浅色与深色模式（深色正文为柔和灰，减轻刺眼）
 - 闪光灯；预览区双指缩放
-- **逻辑多摄**：优先使用系统逻辑后摄（`LOGICAL_MULTI_CAMERA`），变焦比由厂商映射到超广角 / 主摄 / 长焦，无额外镜头按钮
+- **物理多摄**：通过 CameraX `getPhysicalCameraInfos()` + `setPhysicalCameraId()` 获取并绑定超广角 / 主摄 / 长焦；双指缩放跨焦段切换，无额外镜头按钮；不暴露物理镜头的设备回退到普通变焦。
 
 ## 界面预览
 
@@ -107,11 +107,12 @@ implementation 'com.github.jenly1314:zxing-lite:3.5.0'
 
 扫码页通过 CameraX / Camera2 标准能力工作：
 
-1. 选择后置 **逻辑多摄**（`REQUEST_AVAILABLE_CAPABILITIES_LOGICAL_MULTI_CAMERA`）
-2. 预览区 **双指缩放** 调用 `CameraControl.setZoomRatio`
-3. 具体切到超广角 / 主摄 / 长焦由 **系统与厂商** 完成
+1. 绑定后置逻辑多摄。
+2. 使用 `CameraInfo.getPhysicalCameraInfos()` 读取厂商公开的物理镜头。
+3. 根据焦距 / 传感器宽度计算相对视角。
+4. 双指缩放跨过焦段时，通过 `CameraSelector.Builder.setPhysicalCameraId()` 重新绑定目标镜头；剩余倍率交给 `CameraControl.setZoomRatio()`。
 
-没有镜头列表 UI。无逻辑多摄的设备会回退到变焦范围最大的后置摄像头。
+没有镜头列表 UI。厂商未向第三方公开物理镜头时，会退回 CameraX 常规变焦，无法强制使用被厂商隐藏的镜头。
 
 ## CI
 
@@ -158,7 +159,7 @@ python3 scripts/run_scan_result_tests.py
 - 包名改为 `com.lanlan13.zxingx`，可与原版 ZXingLite 共存
 - 扫描结果独立页；现代化 UI 与深色模式
 - 生成页支持输入自定义内容并分享
-- 逻辑多摄 + 双指变焦（无镜头按钮）
+- CameraX 物理多摄 + 双指跨焦段切换（无镜头按钮）
 - 单一 CI 工作流：自动构建 + 手动发版
 
 上游变更见 [CHANGELOG.md](CHANGELOG.md)。
