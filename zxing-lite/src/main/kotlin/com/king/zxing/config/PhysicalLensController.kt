@@ -251,6 +251,7 @@ class PhysicalLensController<T : Any>(
             }
         val bindingIndex = target.bindings.indexOf(binding)
         val generation = ++switchGeneration
+        val previousCamera = cameraScan.getCamera()
         val localZoom = PhysicalLensStrategy.localZoom(target, virtualZoom)
         val restoreTorch = cameraScan.isTorchEnabled()
         physicalOutputObserved = binding !is CameraBinding.Physical
@@ -336,7 +337,6 @@ class PhysicalLensController<T : Any>(
 
         currentBinding = binding
         currentLogicalCameraId = logicalCameraId(binding) ?: currentLogicalCameraId
-        pendingBinding = null
         pendingCandidate = null
         cameraScan.zoomTo(localZoom)
         if (restoreTorch && cameraScan.hasFlashUnit()) {
@@ -356,7 +356,7 @@ class PhysicalLensController<T : Any>(
             ?: currentLogicalCameraId
         val logicalBinding = logicalId?.let(CameraBinding::Logical)
             ?: defaultBinding
-        if (logicalBinding == null) {
+        if (logicalBinding !is CameraBinding.Logical) {
             cameraScan.zoomTo(virtualZoom)
             return
         }
