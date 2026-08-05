@@ -9,19 +9,18 @@ import com.king.camera.scan.analyze.Analyzer
 import com.king.view.viewfinderview.ViewfinderView
 import com.king.zxing.analyze.MultiFormatAnalyzer
 import com.king.zxing.config.LogicalMultiCameraConfig
-import com.king.zxing.config.PhysicalLensController
 import com.king.zxing.gesture.EdgeSwipeBackController
 
 /**
  * 基于 ZXing 实现的扫码识别 - 相机扫描基类。
  *
- * Uses CameraX logical/physical camera APIs. Pinch gestures switch physical lenses
- * when the OEM exposes them; no extra lens buttons are added.
+ * Uses the standard CameraX logical rear camera and CameraScan's native pinch zoom.
+ * CameraControl.setZoomRatio() is delegated to the device camera HAL; this library does
+ * not enumerate, guess, or explicitly bind physical camera IDs.
  */
 abstract class BarcodeCameraScanActivity : BaseCameraScanActivity<Result>() {
 
     protected var viewfinderView: ViewfinderView? = null
-    private var physicalLensController: PhysicalLensController<Result>? = null
     private var swipeBackController: EdgeSwipeBackController? = null
 
     override fun initUI() {
@@ -31,18 +30,13 @@ abstract class BarcodeCameraScanActivity : BaseCameraScanActivity<Result>() {
         }
         super.initUI()
         swipeBackController = EdgeSwipeBackController.install(this)
-        physicalLensController = PhysicalLensController(
-            lifecycleOwner = this,
-            previewView = previewView,
-            cameraScan = cameraScan,
-            configFactory = { binding -> LogicalMultiCameraConfig(this, binding) }
-        ).also { it.install() }
     }
 
     override fun initCameraScan(cameraScan: CameraScan<Result>) {
         super.initCameraScan(cameraScan)
-        // Start with the logical multi-camera. The controller may later bind an explicit
-        // physical camera id while retaining the same PreviewView and analyzer.
+        // CameraScan's default pinch recognizer calls CameraControl.setZoomRatio().
+        // CameraX/HAL owns any physical-lens transition behind that continuous zoom.
+        cameraScan.setNeedTouchZoom(true)
         cameraScan.setCameraConfig(LogicalMultiCameraConfig(this))
     }
 

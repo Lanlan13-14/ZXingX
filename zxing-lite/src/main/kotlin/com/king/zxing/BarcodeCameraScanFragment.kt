@@ -5,8 +5,10 @@ import androidx.annotation.IdRes
 import com.google.zxing.Result
 import com.king.camera.scan.BaseCameraScanFragment
 import com.king.camera.scan.analyze.Analyzer
+import com.king.camera.scan.CameraScan
 import com.king.view.viewfinderview.ViewfinderView
 import com.king.zxing.analyze.MultiFormatAnalyzer
+import com.king.zxing.config.LogicalMultiCameraConfig
 
 /**
  * 基于zxing实现的扫码识别 - 相机扫描基类
@@ -30,6 +32,13 @@ abstract class BarcodeCameraScanFragment : BaseCameraScanFragment<Result>() {
             viewfinderView = rootView.findViewById(viewfinderViewId)
         }
         super.initUI()
+    }
+
+    override fun initCameraScan(cameraScan: CameraScan<Result>) {
+        super.initCameraScan(cameraScan)
+        // Use CameraScan's standard CameraControl.setZoomRatio() gesture path.
+        cameraScan.setNeedTouchZoom(true)
+        cameraScan.setCameraConfig(LogicalMultiCameraConfig(requireContext()))
     }
 
     override fun createAnalyzer(): Analyzer<Result>? {
