@@ -89,13 +89,43 @@ jobs:
       - name: Show Xcode version
         run: xcodebuild -version
 
+      # 部分 macos-15 运行器没有预装任何 iOS 模拟器（release-ios 曾实测失败：
+      # "no available devices matched the request"）。目的地必须动态解析：
+      # 有设备直接用；有 runtime 无设备则 simctl create；连 runtime 都没有则
+      # 下载 iOS 平台后再建。
+      - name: Resolve iOS Simulator destination
+        id: sim
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$(xcrun simctl list -j | python3 scripts/pick_ios_simulator.py || true)"
+          if [[ -z "$OUT" ]]; then
+            echo "No iOS Simulator runtime on this runner; downloading iOS platform"
+            xcodebuild -runFirstLaunch
+            xcodebuild -downloadPlatform iOS
+            OUT="$(xcrun simctl list -j | python3 scripts/pick_ios_simulator.py || true)"
+          fi
+          if [[ "$OUT" == create\ * ]]; then
+            DTYPE="$(echo "$OUT" | cut -d' ' -f2)"
+            RT="$(echo "$OUT" | cut -d' ' -f3)"
+            echo "Creating iPhone simulator ($DTYPE on $RT)"
+            UDID="$(xcrun simctl create ZXingX-CI "$DTYPE" "$RT")"
+          elif [[ "$OUT" == udid\ * ]]; then
+            UDID="${OUT#udid }"
+          else
+            echo "Unable to obtain an iPhone simulator on this runner" >&2
+            exit 1
+          fi
+          echo "Using iOS Simulator UDID: $UDID"
+          echo "dest=platform=iOS Simulator,id=${UDID}" >> "$GITHUB_OUTPUT"
+
       - name: Run iOS unit tests
         working-directory: swiftui
         run: |
           xcodebuild test \
             -project ZXingX.xcodeproj \
             -scheme ZXingX \
-            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+            -destination '${{ steps.sim.outputs.dest }}' \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO
 
@@ -278,13 +308,43 @@ jobs:
       - name: Show Xcode version
         run: xcodebuild -version
 
+      # 部分 macos-15 运行器没有预装任何 iOS 模拟器（release-ios 曾实测失败：
+      # "no available devices matched the request"）。目的地必须动态解析：
+      # 有设备直接用；有 runtime 无设备则 simctl create；连 runtime 都没有则
+      # 下载 iOS 平台后再建。
+      - name: Resolve iOS Simulator destination
+        id: sim
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$(xcrun simctl list -j | python3 scripts/pick_ios_simulator.py || true)"
+          if [[ -z "$OUT" ]]; then
+            echo "No iOS Simulator runtime on this runner; downloading iOS platform"
+            xcodebuild -runFirstLaunch
+            xcodebuild -downloadPlatform iOS
+            OUT="$(xcrun simctl list -j | python3 scripts/pick_ios_simulator.py || true)"
+          fi
+          if [[ "$OUT" == create\ * ]]; then
+            DTYPE="$(echo "$OUT" | cut -d' ' -f2)"
+            RT="$(echo "$OUT" | cut -d' ' -f3)"
+            echo "Creating iPhone simulator ($DTYPE on $RT)"
+            UDID="$(xcrun simctl create ZXingX-CI "$DTYPE" "$RT")"
+          elif [[ "$OUT" == udid\ * ]]; then
+            UDID="${OUT#udid }"
+          else
+            echo "Unable to obtain an iPhone simulator on this runner" >&2
+            exit 1
+          fi
+          echo "Using iOS Simulator UDID: $UDID"
+          echo "dest=platform=iOS Simulator,id=${UDID}" >> "$GITHUB_OUTPUT"
+
       - name: Run iOS unit tests
         working-directory: swiftui
         run: |
           xcodebuild test \
             -project ZXingX.xcodeproj \
             -scheme ZXingX \
-            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+            -destination '${{ steps.sim.outputs.dest }}' \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO
 
