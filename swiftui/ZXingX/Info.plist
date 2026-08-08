@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDisplayName</key>
+	<string>ZXingX</string>
+	<key>CFBundleName</key>
+	<string>ZXingX</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>UILaunchScreen</key>
+	<dict/>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>扫一扫需要使用相机识别二维码与条形码。</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>weixin</string>
+		<string>alipayqr</string>
+		<string>alipays</string>
+		<string>alipay</string>
+		<string>paypal</string>
+	</array>
+	<key>UIApplicationShortcutItems</key>
+	<array>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>com.lanlan13.zxingx.quickscan</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>扫一扫</string>
+			<key>UIApplicationShortcutItemSubtitle</key>
+			<string>ZXingX 连续扫码</string>
+			<key>UIApplicationShortcutItemIconType</key>
+			<string>UIApplicationShortcutIconTypeCapture</string>
+		</dict>
+	</array>
+</dict>
+</plist>

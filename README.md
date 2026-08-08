@@ -38,6 +38,11 @@
 ./gradlew :app:assembleRelease
 ```
 
+### iOS 版
+
+[`swiftui/`](swiftui/) 目录是功能与界面一致的 iOS 版（SwiftUI + iOS 标准接口），
+CI 会与 Android 同步编译。详见 [swiftui/README.md](swiftui/README.md)。
+
 版本号写在 `gradle.properties`：
 
 ```properties
