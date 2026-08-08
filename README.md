@@ -24,7 +24,7 @@
 - Material 3 浅色与深色模式（深色正文为柔和灰，减轻刺眼）
 - 闪光灯；预览区双指缩放
 - Android 快捷设置「扫一扫」磁贴：点击直接进入连续扫码
-- **多摄捏合切换**：通过公开 CameraX / Camera2 元数据发现逻辑相机及物理子镜头，双指缩放跨越公开光学焦段时重新绑定；没有公开物理镜头能力时回退 `CameraControl.setZoomRatio()`；无镜头按钮、无厂商或机型适配。
+- **标准连续变焦**：通过 CameraX 绑定后置逻辑相机，双指缩放调用 `CameraControl.setZoomRatio()`；底层是否切换物理镜头由设备 HAL 决定，不使用镜头 ID 猜测或厂商适配。
 
 ## 界面预览
 
@@ -115,13 +115,12 @@ implementation 'com.github.jenly1314:zxing-lite:3.5.0'
 
 扫码页只使用 CameraX / Camera2 公开能力，不包含厂商或机型硬编码：
 
-1. 要求后置镜头方向，并优先选择设备公开的逻辑多摄。
-2. 从 CameraX `availableCameraInfos` 和逻辑相机的 `getPhysicalCameraInfos()` 建立父逻辑相机与物理子镜头关系。
-3. 使用 Android 返回的焦距 / 传感器尺寸计算公开光学元数据对应的相对焦段；不解释 Camera ID 的编号或字符串。
-4. 双指缩放跨越可用焦段时，同时筛选父逻辑相机，并通过 `setPhysicalCameraId()` 与 Camera2 Interop 将同一物理 ID 应用于 Preview 和 ImageAnalysis。
-5. 物理绑定不被设备接受时，记录失败并回到逻辑相机的 `CameraControl.setZoomRatio()`，不伪造成功。
+1. 要求后置镜头方向。
+2. 如果设备公开逻辑多摄，优先选择逻辑后置相机；否则使用 CameraX 返回的后置相机。
+3. 双指缩放沿用 CameraScan 的标准 `CameraControl.setZoomRatio()` 调用。
+4. 底层是否在超广角、主摄、长焦之间切换由设备 Camera HAL 决定，应用不猜测阈值、不读取或绑定未经公开的镜头。
 
-没有镜头按钮。设备不公开物理多摄时，只能使用标准后置相机和其支持的连续变焦。
+本项目不承诺显式物理镜头切换。设备没有公开逻辑多摄时，只能使用标准后置相机和其支持的连续变焦。
 
 ## CI
 
@@ -168,7 +167,7 @@ python3 scripts/run_scan_result_tests.py
 - 包名改为 `com.lanlan13.zxingx`，可与原版 ZXingLite 共存
 - 扫描结果独立页；现代化 UI 与深色模式
 - 生成页支持输入自定义内容并分享
-- CameraX / Camera2 公开元数据驱动的多摄捏合切换（无镜头按钮、无厂商或机型适配）
+- CameraX 后置逻辑相机标准连续变焦（无厂商或机型适配）
 - ZXingX 自绘边缘返回动画（不依赖系统实验开关）
 - 单一 CI 工作流：自动构建 + 手动发版
 

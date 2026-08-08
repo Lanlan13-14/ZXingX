@@ -9,7 +9,6 @@ import com.king.camera.scan.CameraScan
 import com.king.view.viewfinderview.ViewfinderView
 import com.king.zxing.analyze.MultiFormatAnalyzer
 import com.king.zxing.config.LogicalMultiCameraConfig
-import com.king.zxing.config.PhysicalLensController
 
 /**
  * 基于zxing实现的扫码识别 - 相机扫描基类
@@ -26,7 +25,6 @@ abstract class BarcodeCameraScanFragment : BaseCameraScanFragment<Result>() {
      * 扫码框视图；当 [getViewfinderViewId] 返回有效 ID 时会在 [initUI] 中自动绑定。
      */
     protected var viewfinderView: ViewfinderView? = null
-    private var physicalLensController: PhysicalLensController<Result>? = null
 
     override fun initUI() {
         val viewfinderViewId = getViewfinderViewId()
@@ -34,21 +32,13 @@ abstract class BarcodeCameraScanFragment : BaseCameraScanFragment<Result>() {
             viewfinderView = rootView.findViewById(viewfinderViewId)
         }
         super.initUI()
-        physicalLensController = PhysicalLensController(
-            previewView = previewView,
-            cameraScan = cameraScan,
-            configFactory = { binding -> LogicalMultiCameraConfig(requireContext(), binding) },
-        ).also { it.install() }
     }
 
     override fun initCameraScan(cameraScan: CameraScan<Result>) {
         super.initCameraScan(cameraScan)
+        // Use CameraScan's standard CameraControl.setZoomRatio() gesture path.
+        cameraScan.setNeedTouchZoom(true)
         cameraScan.setCameraConfig(LogicalMultiCameraConfig(requireContext()))
-    }
-
-    override fun onDestroyView() {
-        physicalLensController?.release()
-        super.onDestroyView()
     }
 
     override fun createAnalyzer(): Analyzer<Result>? {
