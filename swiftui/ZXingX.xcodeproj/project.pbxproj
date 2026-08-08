@@ -21,8 +21,18 @@
 		AA0000000000000000000009 /* ZXingXTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ZXingXTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		AA000000000000000000001B /* Exceptions for "ZXingX" folder in "ZXingX" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = AA0000000000000000000002 /* ZXingX */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		AA0000000000000000000004 /* ZXingX */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = ZXingX; sourceTree = "<group>"; };
+		AA0000000000000000000004 /* ZXingX */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (AA000000000000000000001B /* Exceptions for "ZXingX" folder in "ZXingX" target */, ); explicitFileTypes = {}; explicitFolders = (); path = ZXingX; sourceTree = "<group>"; };
 		AA0000000000000000000005 /* ZXingXTests */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = ZXingXTests; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
