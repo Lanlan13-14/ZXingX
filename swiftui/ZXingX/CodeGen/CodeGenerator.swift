@@ -190,12 +190,12 @@ enum CodeGenerator {
         let format = UIGraphicsImageRendererFormat()
         format.opaque = true
         let renderer = UIGraphicsImageRenderer(
-            size: CGSize(width: width, height: canvasHeight),
+            size: CGSize(width: CGFloat(width), height: canvasHeight),
             format: format
         )
         return renderer.image { ctx in
             UIColor.white.setFill()
-            ctx.fill(CGRect(x: 0, y: 0, width: width, height: canvasHeight))
+            ctx.fill(CGRect(x: 0, y: 0, width: CGFloat(width), height: canvasHeight))
             let ciContext = CIContext()
             let scaled = output.transformed(by: CGAffineTransform(
                 scaleX: CGFloat(width) / output.extent.width,
