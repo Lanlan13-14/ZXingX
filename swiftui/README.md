@@ -59,6 +59,8 @@ xcodebuild test \
 
 真机安装需要在 Xcode 里选择自己的 Development Team 签名；
 发布 App Store 需要 Apple Developer 账号（Archive → Distribute）。
+CI 产出的 `.ipa` 是**未签名**包（仓库不保存任何签名材料），必须先用自有证书、
+AltStore / Sideloadly 等工具重签名后才能安装到设备。
 
 ## CI
 
@@ -66,11 +68,12 @@ xcodebuild test \
 
 | 触发 | Android job | iOS job |
 | --- | --- | --- |
-| push / PR → main | 单测 + debug APK artifact | 单测（模拟器）+ 无签名 Release 编译，上传 `.app` |
-| 手动 Run workflow（发布） | release APK + GitHub Release | 同上（无签名编译验证） |
+| push / PR → main | 单测 + debug APK artifact | 单测（模拟器）+ 无签名 Release 编译，上传 `.app` 与未签名 `.ipa` artifact |
+| 手动 Run workflow（发布） | release APK + GitHub Release | `release-ios`：单测 + 无签名 Release 编译，把 `ZXingX-<tag>-unsigned.ipa` 附上同一 GitHub Release |
 
-iOS 安装包必须经 Apple Developer 签名，因此 Release 只包含 Android APK；
-iOS 发布需本地 Archive。
+Release 里的 iOS `.ipa` 是未签名包：仓库没有 Apple Developer 签名材料，
+CI 无法签名。安装前需用自有证书 / AltStore / Sideloadly 重签名侧载；
+App Store 正式发布仍需本地 Archive（Xcode → Distribute）。
 
 ## 目录结构
 

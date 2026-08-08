@@ -128,8 +128,8 @@ implementation 'com.github.jenly1314:zxing-lite:3.5.0'
 
 | 触发 | 行为 |
 | --- | --- |
-| `push` / `pull_request` → `main` | 编译 debug APK，上传 artifact |
-| Actions 手动 Run workflow | 按版本号打 release APK，创建 GitHub Release |
+| `push` / `pull_request` → `main` | 编译 debug APK，上传 artifact；iOS 无签名编译验证并上传 `.app` / 未签名 `.ipa` artifact |
+| Actions 手动 Run workflow | 按版本号打 release APK，创建 GitHub Release；`release-ios` 把未签名 iOS `.ipa` 附上同一 Release |
 
 手动发布参数：
 
@@ -140,7 +140,8 @@ implementation 'com.github.jenly1314:zxing-lite:3.5.0'
 | `prerelease` | 是否预发布 | `false` |
 
 `versionCode = major * 10000 + minor * 100 + patch`。  
-Release 附件名：`ZXingX-vX.Y.Z.apk`。
+Release 附件：Android `ZXingX-vX.Y.Z.apk`；iOS `ZXingX-vX.Y.Z-unsigned.ipa`
+（未签名，需重签名后侧载，见 [swiftui/README.md](swiftui/README.md)）。
 
 Release 使用仓库内固定密钥 `app/keystore/zxingx-release.jks` 签名，保证 CI 多次发版可互相覆盖安装。
 

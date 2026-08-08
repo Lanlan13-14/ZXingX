@@ -1,8 +1,8 @@
 name: CI
 
 # 一份工作流：
-# - push / pull_request → 编译 debug APK
-# - 手动 Run workflow → 写版本号、打 release APK、创建 GitHub Release
+# - push / pull_request → 编译 debug APK + iOS 无签名编译验证（上传 .app / .ipa artifact）
+# - 手动 Run workflow → 写版本号、打 release APK + 未签名 iOS IPA、创建 GitHub Release
 on:
   push:
     branches: [main]
@@ -74,11 +74,12 @@ jobs:
           retention-days: 14
 
   # iOS 版（swiftui/ 目录）：与 Android 同步编译。
-  # 运行单元测试并做无签名 Release 编译验证。iOS 安装包（.ipa）必须经
-  # Apple Developer 签名，CI 只产出未签名 .app 供检查；发布流程见
-  # swiftui/README.md。
+  # 运行单元测试并做无签名 Release 编译验证，同时把无签名 .app 打包成
+  # 未签名 .ipa（Payload 结构）。仓库没有 Apple Developer 签名材料，ipa 只能
+  # 重签名后侧载；发布时由 release-ios job 把 ipa 附上 GitHub Release。
   build-ios:
     name: Build iOS (swiftui)
+    if: github.event_name != 'workflow_dispatch'
     runs-on: macos-15
     timeout-minutes: 45
     steps:
@@ -110,6 +111,18 @@ jobs:
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO
 
+      - name: Package unsigned IPA
+        working-directory: swiftui
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="build/Build/Products/Release-iphoneos/ZXingX.app"
+          rm -rf Payload ZXingX-unsigned.ipa
+          mkdir -p Payload
+          cp -R "$APP" Payload/
+          zip -qry ZXingX-unsigned.ipa Payload
+          ls -lh ZXingX-unsigned.ipa
+
       - name: Upload unsigned iOS app
         uses: actions/upload-artifact@v4
         with:
@@ -118,11 +131,23 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Upload unsigned iOS IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZXingX-ios-unsigned-ipa
+          path: swiftui/ZXingX-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 14
+
   release:
     name: Release
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    outputs:
+      tag: ${{ steps.ver.outputs.tag }}
+      name: ${{ steps.ver.outputs.name }}
+      code: ${{ steps.ver.outputs.code }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -228,9 +253,74 @@ jobs:
             - versionName: `${{ steps.ver.outputs.name }}`
             - versionCode: `${{ steps.ver.outputs.code }}`
             - commit: `${{ github.sha }}`
+            - Android: `ZXingX-${{ steps.ver.outputs.tag }}.apk`
+            - iOS: `ZXingX-${{ steps.ver.outputs.tag }}-unsigned.ipa`（未签名，需用自有证书 / AltStore / Sideloadly 等重签名后侧载）
           draft: false
           prerelease: ${{ github.event.inputs.prerelease == 'true' }}
           files: ${{ steps.apk.outputs.path }}
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # 发布时的 iOS 产物：与 release job（Android APK）并行同一个 tag。
+  # 仓库无 Apple Developer 签名材料，只能产出未签名 ipa；needs: release 保证
+  # GitHub Release 已存在，再用 gh CLI 只追加上传附件、不动 release 元数据。
+  release-ios:
+    name: Release iOS (unsigned IPA)
+    if: github.event_name == 'workflow_dispatch'
+    needs: release
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Run iOS unit tests
+        working-directory: swiftui
+        run: |
+          xcodebuild test \
+            -project ZXingX.xcodeproj \
+            -scheme ZXingX \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Build iOS app (unsigned Release)
+        working-directory: swiftui
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project ZXingX.xcodeproj \
+            -scheme ZXingX \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            MARKETING_VERSION="${{ needs.release.outputs.name }}" \
+            CURRENT_PROJECT_VERSION="${{ needs.release.outputs.code }}"
+
+      - name: Package unsigned IPA
+        working-directory: swiftui
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="build/Build/Products/Release-iphoneos/ZXingX.app"
+          IPA="ZXingX-${{ needs.release.outputs.tag }}-unsigned.ipa"
+          rm -rf Payload "$IPA"
+          mkdir -p Payload
+          cp -R "$APP" Payload/
+          zip -qry "$IPA" Payload
+          cp "$IPA" "$GITHUB_WORKSPACE/$IPA"
+          ls -lh "$GITHUB_WORKSPACE/$IPA"
+
+      - name: Upload IPA to GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          IPA="$GITHUB_WORKSPACE/ZXingX-${{ needs.release.outputs.tag }}-unsigned.ipa"
+          gh release upload "${{ needs.release.outputs.tag }}" "$IPA" --clobber
