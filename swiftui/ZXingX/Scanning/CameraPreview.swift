@@ -25,10 +25,31 @@ struct CameraPreview: UIViewRepresentable {
         override func layoutSubviews() {
             super.layoutSubviews()
             // Keep metadata/preview orientation aligned with the interface.
-            if let connection = previewLayer.connection,
-               connection.isVideoRotationAngleSupported(90) {
-                connection.videoRotationAngle = 90 // portrait for the back camera
+            // layoutSubviews fires on every rotation (frame change), which is
+            // what makes iPad landscape work without a notification observer.
+            guard let connection = previewLayer.connection else { return }
+            let orientation = window?.windowScene?.interfaceOrientation ?? .portrait
+            let angle = CameraPreview.rotationAngle(for: orientation)
+            if connection.isVideoRotationAngleSupported(angle) {
+                connection.videoRotationAngle = angle
             }
+        }
+    }
+
+    /// videoRotationAngle for a given interface orientation.
+    ///
+    /// The camera buffer is sensor-native landscape; the angle counts the
+    /// clockwise rotation needed to make it upright. Anchor: portrait = 90.
+    /// UIInterfaceOrientation is name-mirrored against UIDeviceOrientation
+    /// (UI.landscapeLeft is the same physical pose as Device.landscapeRight),
+    /// which yields this table:
+    ///   portrait → 90, portraitUpsideDown → 270, landscapeLeft → 0, landscapeRight → 180
+    static func rotationAngle(for orientation: UIInterfaceOrientation) -> CGFloat {
+        switch orientation {
+        case .portraitUpsideDown: return 270
+        case .landscapeLeft: return 0
+        case .landscapeRight: return 180
+        default: return 90 // .portrait / .unknown
         }
     }
 

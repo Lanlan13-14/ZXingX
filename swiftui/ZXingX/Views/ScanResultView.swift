@@ -66,6 +66,9 @@ struct ScanResultView: View {
                 }
             }
             .padding(20)
+            // iPad: cap the column at a readable width, centered.
+            .frame(maxWidth: 640)
+            .frame(maxWidth: .infinity)
         }
         .background(Color(uiColor: .systemGroupedBackground))
         .navigationTitle("扫描结果")

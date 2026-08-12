@@ -7,6 +7,7 @@
 //
 
 import AVFoundation
+import UIKit
 import XCTest
 @testable import ZXingX
 
@@ -50,5 +51,23 @@ final class CameraSelectionTests: XCTestCase {
         for position in [AVCaptureDevice.Position.back, .front, .unspecified] {
             XCTAssertFalse(CameraController.deviceTypes(for: position).isEmpty)
         }
+    }
+
+    // MARK: - Preview rotation (iPad landscape)
+
+    func testRotationAngleCoversAllInterfaceOrientations() {
+        XCTAssertEqual(CameraPreview.rotationAngle(for: .portrait), 90)
+        XCTAssertEqual(CameraPreview.rotationAngle(for: .portraitUpsideDown), 270)
+        XCTAssertEqual(CameraPreview.rotationAngle(for: .landscapeLeft), 0)
+        XCTAssertEqual(CameraPreview.rotationAngle(for: .landscapeRight), 180)
+        XCTAssertEqual(CameraPreview.rotationAngle(for: .unknown), 90)
+    }
+
+    func testLandscapeAnglesDifferFromPortraitByNinetyDegrees() {
+        // Portrait and landscape must be exactly a quarter-turn apart,
+        // otherwise the iPad preview comes out squashed instead of rotated.
+        let portrait = CameraPreview.rotationAngle(for: .portrait)
+        let landscape = CameraPreview.rotationAngle(for: .landscapeRight)
+        XCTAssertEqual(abs(portrait - landscape), 90)
     }
 }

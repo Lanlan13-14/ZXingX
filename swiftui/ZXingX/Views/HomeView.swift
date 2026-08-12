@@ -22,43 +22,52 @@ struct HomeView: View {
 
     var body: some View {
         NavigationStack(path: $router.path) {
-            List {
-                Section("扫描") {
-                    actionRow(
-                        icon: "barcode.viewfinder",
-                        title: "连续扫码",
-                        description: "识别多种一维码与二维码",
-                        route: .scan(.continuous)
-                    )
-                    actionRow(
-                        icon: "qrcode.viewfinder",
-                        title: "扫二维码",
-                        description: "仅识别二维码，更快更准",
-                        route: .scan(.qrBox)
-                    )
-                    actionRow(
-                        icon: "viewfinder",
-                        title: "全屏识别",
-                        description: "全画面识别二维码",
-                        route: .scan(.qrFullScreen)
-                    )
-                    photoRow
-                }
+            ZStack {
+                // iPad: the list is capped at a readable width and centered;
+                // the grouped background fills the margins so the hidden
+                // list background blends in seamlessly (light & dark).
+                Color(uiColor: .systemGroupedBackground)
+                    .ignoresSafeArea()
+                List {
+                    Section("扫描") {
+                        actionRow(
+                            icon: "barcode.viewfinder",
+                            title: "连续扫码",
+                            description: "识别多种一维码与二维码",
+                            route: .scan(.continuous)
+                        )
+                        actionRow(
+                            icon: "qrcode.viewfinder",
+                            title: "扫二维码",
+                            description: "仅识别二维码，更快更准",
+                            route: .scan(.qrBox)
+                        )
+                        actionRow(
+                            icon: "viewfinder",
+                            title: "全屏识别",
+                            description: "全画面识别二维码",
+                            route: .scan(.qrFullScreen)
+                        )
+                        photoRow
+                    }
 
-                Section("生成") {
-                    actionRow(
-                        icon: "qrcode",
-                        title: "生成二维码",
-                        description: "输入文字或链接，生成可扫二维码",
-                        route: .generateQR
-                    )
-                    actionRow(
-                        icon: "barcode",
-                        title: "生成条形码",
-                        description: "输入内容，生成 CODE_128 条码",
-                        route: .generateBarcode
-                    )
+                    Section("生成") {
+                        actionRow(
+                            icon: "qrcode",
+                            title: "生成二维码",
+                            description: "输入文字或链接，生成可扫二维码",
+                            route: .generateQR
+                        )
+                        actionRow(
+                            icon: "barcode",
+                            title: "生成条形码",
+                            description: "输入内容，生成 CODE_128 条码",
+                            route: .generateBarcode
+                        )
+                    }
                 }
+                .scrollContentBackground(.hidden)
+                .frame(maxWidth: 720)
             }
             .navigationTitle("扫一扫")
             .navigationDestination(for: Route.self) { route in
