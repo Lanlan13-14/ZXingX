@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="zxl_switch_camera">切换前置/后置摄像头</string>
+    <string name="zxl_camera_open_failed">无法打开摄像头，请检查相机权限或设备摄像头</string>
+</resources>
