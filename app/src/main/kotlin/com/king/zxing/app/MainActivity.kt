@@ -48,7 +48,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        TabletUi.applyOrientation(this)
         setContentView(R.layout.activity_main)
+        TabletUi.applyContentWidth(this, findViewById(R.id.homeContent))
 
         resultLauncher = registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()

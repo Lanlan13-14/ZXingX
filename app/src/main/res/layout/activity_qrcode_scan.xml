@@ -38,4 +38,21 @@
         android:padding="@dimen/zxl_switch_camera_padding"
         android:src="@drawable/zxl_ic_switch_camera"
         android:visibility="gone" />
+
+    <!-- 前置补光：无闪光灯的摄像头点亮上下两条白色区域（高度运行时按屏幕比例设置） -->
+    <View
+        android:id="@+id/screenFlashTop"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_gravity="top"
+        android:background="@android:color/white"
+        android:visibility="gone" />
+
+    <View
+        android:id="@+id/screenFlashBottom"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_gravity="bottom"
+        android:background="@android:color/white"
+        android:visibility="gone" />
 </FrameLayout>

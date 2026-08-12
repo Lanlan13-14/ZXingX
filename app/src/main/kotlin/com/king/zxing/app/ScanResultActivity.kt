@@ -29,7 +29,10 @@ class ScanResultActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        TabletUi.applyOrientation(this)
         setContentView(R.layout.activity_scan_result)
+        TabletUi.applyContentWidth(this, findViewById(R.id.scroll))
+        TabletUi.applyContentWidth(this, findViewById(R.id.actionBar))
         swipeBack = EdgeSwipeBackController.install(this)
 
         // Default result for any cancelled/committed back path.

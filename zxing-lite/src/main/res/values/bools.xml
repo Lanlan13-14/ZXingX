@@ -1,7 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- TileService exists from API 24; app minSdk is 23. -->
-    <bool name="enable_quick_scan_tile">false</bool>
     <!-- sw600dp 覆盖为 true：手机锁竖屏，平板跟随传感器（含横屏）。 -->
-    <bool name="is_tablet">false</bool>
+    <bool name="zxl_is_tablet">false</bool>
 </resources>

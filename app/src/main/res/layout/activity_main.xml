@@ -18,6 +18,7 @@
         android:paddingBottom="@dimen/space_32">
 
         <LinearLayout
+            android:id="@+id/homeContent"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"

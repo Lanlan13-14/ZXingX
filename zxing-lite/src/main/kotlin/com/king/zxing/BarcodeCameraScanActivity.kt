@@ -1,10 +1,14 @@
 package com.king.zxing
 
 import android.Manifest
+import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.View
+import android.view.animation.AccelerateInterpolator
+import android.view.animation.DecelerateInterpolator
 import android.widget.Toast
 import androidx.annotation.IdRes
 import androidx.camera.core.CameraSelector
@@ -17,6 +21,7 @@ import com.king.camera.scan.analyze.Analyzer
 import com.king.view.viewfinderview.ViewfinderView
 import com.king.zxing.analyze.MultiFormatAnalyzer
 import com.king.zxing.config.CameraFacingPlan
+import com.king.zxing.config.FillLightPlan
 import com.king.zxing.config.LogicalMultiCameraConfig
 import com.king.zxing.config.MinimalCameraConfig
 import com.king.zxing.gesture.EdgeSwipeBackController
@@ -28,19 +33,28 @@ import com.king.zxing.gesture.EdgeSwipeBackController
  * CameraControl.setZoomRatio() is delegated to the device camera HAL; this library does
  * not enumerate, guess, or explicitly bind physical camera IDs.
  *
- * Two resilience features live here:
+ * Features layered on top of CameraScan:
  *
  * 1. Front/back switching: layouts may contain an `ivSwitchCamera` view (bottom center);
- *    tapping it rebinds the camera with the opposite lens facing. The button is only
- *    shown when the device actually reports both a front and a back camera. The default
- *    facing is back; on devices without a back camera (e.g. some pads/kiosks) the
- *    initial facing automatically falls back to front.
+ *    tapping it plays a rotateY card-flip on the preview and rebinds the opposite lens
+ *    facing at the edge-on midpoint. The button is only shown when the device reports
+ *    both cameras. Default facing is back; devices without a back camera (some
+ *    pads/kiosks) start on the front camera automatically.
  *
  * 2. Bind-failure fallback: camera-scan's startCamera() swallows bind exceptions, so a
  *    failed bind (observed on some tablets/pads) otherwise leaves a silent black screen.
  *    A watchdog checks whether a camera got bound; if not, it escalates through
  *    [CameraFacingPlan] (preferred-full → preferred-minimal → opposite-full →
  *    opposite-minimal) and finally surfaces a Toast instead of failing silently.
+ *
+ * 3. Screen flash ([FillLightPlan]): on cameras without a flash unit (front) the
+ *    flashlight button lights two white bars (top/bottom) at full window brightness
+ *    instead of the torch. The flashlight icon is self-managed (always visible)
+ *    because camera-scan's ambient-light auto-hide would hide it exactly when the
+ *    screen flash lights the room up.
+ *
+ * 4. Tablets (sw600dp) are unlocked to FULL_SENSOR orientation; phones keep the
+ *    manifest's portrait lock.
  */
 abstract class BarcodeCameraScanActivity : BaseCameraScanActivity<Result>() {
 
@@ -48,6 +62,16 @@ abstract class BarcodeCameraScanActivity : BaseCameraScanActivity<Result>() {
     private var swipeBackController: EdgeSwipeBackController? = null
 
     private var ivSwitchCamera: View? = null
+
+    /** 前置补光区域（上下两条白色）；布局中可缺省。 */
+    private var screenFlashTop: View? = null
+    private var screenFlashBottom: View? = null
+
+    /** 屏幕补光是否点亮（无闪光灯摄像头时手电筒按钮的替代行为）。 */
+    private var isScreenFlashOn = false
+
+    /** 点亮补光前的窗口亮度，用于恢复；-1 表示系统跟随（BRIGHTNESS_OVERRIDE_NONE）。 */
+    private var savedScreenBrightness: Float? = null
 
     /** Lens facing the user prefers (default back); toggled by the switch button. */
     @CameraSelector.LensFacing
@@ -64,6 +88,14 @@ abstract class BarcodeCameraScanActivity : BaseCameraScanActivity<Result>() {
 
     private val bindWatchdog = Runnable { onBindWatchdog() }
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        // 平板（sw600dp）放开方向锁定；手机维持清单里的竖屏声明。
+        if (resources.getBoolean(R.bool.zxl_is_tablet)) {
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
+        }
+    }
+
     override fun initUI() {
         val viewfinderViewId = getViewfinderViewId()
         if (viewfinderViewId != View.NO_ID && viewfinderViewId != 0) {
@@ -75,7 +107,17 @@ abstract class BarcodeCameraScanActivity : BaseCameraScanActivity<Result>() {
             ivSwitchCamera = findViewById(switchCameraId)
             ivSwitchCamera?.setOnClickListener { switchCameraFacing() }
         }
+        screenFlashTop = findViewById(R.id.screenFlashTop)
+        screenFlashBottom = findViewById(R.id.screenFlashBottom)
+        sizeScreenFlashViews()
         swipeBackController = EdgeSwipeBackController.install(this)
+    }
+
+    /** 补光区域高度：上 20% / 下 25% 屏幕高，参考微信前置补光的占比。 */
+    private fun sizeScreenFlashViews() {
+        val height = resources.displayMetrics.heightPixels
+        screenFlashTop?.layoutParams?.height = (height * SCREEN_FLASH_TOP_RATIO).toInt()
+        screenFlashBottom?.layoutParams?.height = (height * SCREEN_FLASH_BOTTOM_RATIO).toInt()
     }
 
     override fun initCameraScan(cameraScan: CameraScan<Result>) {
@@ -83,6 +125,10 @@ abstract class BarcodeCameraScanActivity : BaseCameraScanActivity<Result>() {
         // CameraScan's default pinch recognizer calls CameraControl.setZoomRatio().
         // CameraX/HAL owns any physical-lens transition behind that continuous zoom.
         cameraScan.setNeedTouchZoom(true)
+        // 手电筒图标改为常驻、由本类自管：继续挂在光照传感器上时，屏幕补光会把
+        // 环境照亮，管理器随即把图标隐藏——用户将无法再关掉补光。
+        cameraScan.bindFlashlightView(null)
+        ivFlashlight?.visibility = View.VISIBLE
         applyCameraConfigForAttempt()
         probeCameraAvailability()
     }
@@ -105,6 +151,9 @@ abstract class BarcodeCameraScanActivity : BaseCameraScanActivity<Result>() {
 
     override fun onDestroy() {
         mainHandler.removeCallbacks(bindWatchdog)
+        if (isScreenFlashOn) {
+            setScreenFlash(false) // 恢复窗口亮度，避免带出到其它页面
+        }
         super.onDestroy()
     }
 
@@ -130,13 +179,72 @@ abstract class BarcodeCameraScanActivity : BaseCameraScanActivity<Result>() {
     }
 
     /**
-     * 切换前置/后置摄像头；切换后从降级链的起点重新绑定。
+     * 手电筒按钮：有闪光单元的摄像头走硬件 torch；没有（前置等）改为屏幕补光——
+     * 点亮上下两条白色区域并把窗口亮度拉满（微信/iOS 相机同款前置补光）。
+     */
+    override fun onClickFlashlight() {
+        val hasFlashUnit = cameraScan?.camera?.cameraInfo?.hasFlashUnit()
+        if (FillLightPlan.useScreenFlash(currentLensFacing, hasFlashUnit)) {
+            setScreenFlash(!isScreenFlashOn)
+        } else {
+            super.onClickFlashlight()
+        }
+    }
+
+    private fun setScreenFlash(on: Boolean) {
+        if (on == isScreenFlashOn) return
+        isScreenFlashOn = on
+        screenFlashTop?.visibility = if (on) View.VISIBLE else View.GONE
+        screenFlashBottom?.visibility = if (on) View.VISIBLE else View.GONE
+        ivFlashlight?.isSelected = on
+        val attrs = window.attributes
+        if (on) {
+            if (savedScreenBrightness == null) savedScreenBrightness = attrs.screenBrightness
+            attrs.screenBrightness = 1.0f // BRIGHTNESS_OVERRIDE_FULL
+        } else {
+            attrs.screenBrightness =
+                savedScreenBrightness ?: android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+            savedScreenBrightness = null
+        }
+        window.attributes = attrs
+    }
+
+    /**
+     * 切换前置/后置摄像头；预览做绕 Y 轴的卡片翻转动画（0→90° 期间完成换绑，
+     * -90°→0° 展示新画面），切换后从降级链的起点重新绑定。
      */
     protected fun switchCameraFacing() {
+        // 换镜头后原补光/闪光灯状态不再有效。
+        setScreenFlash(false)
+        ivFlashlight?.isSelected = false
+
+        val preview = previewView
+        if (preview == null || preview.width == 0) {
+            performCameraSwitch()
+            return
+        }
+        preview.animate().cancel()
+        // 透视强度对齐参考（perspective:1200px / 320px 卡片宽 ≈ 3.75）。
+        preview.cameraDistance = preview.width * FLIP_PERSPECTIVE_RATIO
+        preview.animate()
+            .rotationY(90f)
+            .setDuration(FLIP_HALF_DURATION_MS)
+            .setInterpolator(AccelerateInterpolator(FLIP_INTERPOLATOR_FACTOR))
+            .withEndAction {
+                performCameraSwitch()
+                preview.rotationY = -90f
+                preview.animate()
+                    .rotationY(0f)
+                    .setDuration(FLIP_HALF_DURATION_MS)
+                    .setInterpolator(DecelerateInterpolator(FLIP_INTERPOLATOR_FACTOR))
+                    .start()
+            }
+            .start()
+    }
+
+    private fun performCameraSwitch() {
         preferredLensFacing = CameraFacingPlan.opposite(currentLensFacing)
         cameraStartAttempt = 0
-        // 换镜头后原闪光灯状态不再有效，复位手电筒图标。
-        ivFlashlight?.isSelected = false
         applyCameraConfigForAttempt()
         cameraScan?.startCamera()
         scheduleBindWatchdog()
@@ -214,5 +322,16 @@ abstract class BarcodeCameraScanActivity : BaseCameraScanActivity<Result>() {
     private companion object {
         /** 相机绑定看门狗超时；绑定通常 1 秒内完成，3 秒容忍慢设备。 */
         const val BIND_WATCHDOG_MS = 3000L
+
+        /** 翻转动画半程时长；参考实现全程 0.8s，相机切换收紧到 0.6s 保持跟手。 */
+        const val FLIP_HALF_DURATION_MS = 300L
+
+        /** 参考卡片的透视比：perspective 1200px / 卡片宽 320px。 */
+        const val FLIP_PERSPECTIVE_RATIO = 3.75f
+
+        const val FLIP_INTERPOLATOR_FACTOR = 0.6f
+
+        const val SCREEN_FLASH_TOP_RATIO = 0.20f
+        const val SCREEN_FLASH_BOTTOM_RATIO = 0.25f
     }
 }

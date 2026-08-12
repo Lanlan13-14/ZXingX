@@ -55,7 +55,9 @@ class CodeActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        TabletUi.applyOrientation(this)
         setContentView(R.layout.code_activity)
+        TabletUi.applyContentWidth(this, findViewById(R.id.scroll))
         swipeBack = EdgeSwipeBackController.install(this)
 
         ivCode = findViewById(R.id.ivCode)

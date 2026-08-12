@@ -49,6 +49,11 @@ final class CameraController: NSObject, ObservableObject {
     @Published private(set) var isFrontCamera = false
     @Published private(set) var canSwitchCamera = false
     @Published private(set) var isTorchAvailable = false
+    /// Screen flash (front-camera fill light): two white bars + full
+    /// brightness while the active camera has no torch. Android parity:
+    /// BarcodeCameraScanActivity.setScreenFlash.
+    @Published private(set) var isScreenFlashOn = false
+    private var savedScreenBrightness: CGFloat?
 
     /// Result marker shown by the full-screen scanner (displayResultPoint on
     /// Android). Preview-layer coordinates.
@@ -99,6 +104,7 @@ final class CameraController: NSObject, ObservableObject {
     }
 
     func stop() {
+        setScreenFlash(false) // 离开扫码页时恢复屏幕亮度
         let session = self.session
         sessionQueue.async {
             if session.isRunning { session.stopRunning() }
@@ -252,6 +258,7 @@ final class CameraController: NSObject, ObservableObject {
         }
 
         Task { @MainActor in
+            self.setScreenFlash(false) // 换镜头后原补光状态不再有效
             self.isFrontCamera = usedPosition == .front
             self.canSwitchCamera = switchable
             self.isTorchAvailable = device.hasTorch
@@ -310,7 +317,20 @@ final class CameraController: NSObject, ObservableObject {
 
     // MARK: - Torch (flashlight button)
 
+    /// Flashlight button routing (Android FillLightPlan): a camera with a
+    /// flash unit drives the hardware torch; one without (front cameras)
+    /// toggles the screen flash instead. `hasTorch` is nil while binding —
+    /// then the position heuristic decides (front cameras never have a torch).
+    nonisolated static func usesScreenFlash(hasTorch: Bool?, isFront: Bool) -> Bool {
+        let has = hasTorch ?? !isFront
+        return !has
+    }
+
     func setTorch(_ on: Bool) {
+        if Self.usesScreenFlash(hasTorch: device?.hasTorch, isFront: isFrontCamera) {
+            setScreenFlash(on)
+            return
+        }
         guard let device, device.hasTorch, device.isTorchAvailable else { return }
         sessionQueue.async {
             do {
@@ -320,6 +340,24 @@ final class CameraController: NSObject, ObservableObject {
                 Task { @MainActor in self.isTorchOn = on }
             } catch {
                 // Torch unavailable right now — keep UI state unchanged.
+            }
+        }
+    }
+
+    /// Front-facing fill light: white bars overlay (ScannerView) plus maximum
+    /// screen brightness; the previous brightness is restored on off.
+    func setScreenFlash(_ on: Bool) {
+        guard on != isScreenFlashOn else { return }
+        isScreenFlashOn = on
+        if on {
+            if savedScreenBrightness == nil {
+                savedScreenBrightness = UIScreen.main.brightness
+            }
+            UIScreen.main.brightness = 1.0
+        } else {
+            if let saved = savedScreenBrightness {
+                UIScreen.main.brightness = saved
+                savedScreenBrightness = nil
             }
         }
     }

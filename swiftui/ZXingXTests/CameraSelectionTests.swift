@@ -70,4 +70,21 @@ final class CameraSelectionTests: XCTestCase {
         let landscape = CameraPreview.rotationAngle(for: .landscapeRight)
         XCTAssertEqual(abs(portrait - landscape), 90)
     }
+
+    // MARK: - Fill light routing (ports FillLightPlanTest.kt)
+
+    func testCameraWithTorchUsesHardwareTorch() {
+        XCTAssertFalse(CameraController.usesScreenFlash(hasTorch: true, isFront: false))
+        XCTAssertFalse(CameraController.usesScreenFlash(hasTorch: true, isFront: true))
+    }
+
+    func testCameraWithoutTorchUsesScreenFlash() {
+        XCTAssertTrue(CameraController.usesScreenFlash(hasTorch: false, isFront: true))
+        XCTAssertTrue(CameraController.usesScreenFlash(hasTorch: false, isFront: false))
+    }
+
+    func testUnknownTorchFallsBackToPositionHeuristic() {
+        XCTAssertTrue(CameraController.usesScreenFlash(hasTorch: nil, isFront: true))
+        XCTAssertFalse(CameraController.usesScreenFlash(hasTorch: nil, isFront: false))
+    }
 }
