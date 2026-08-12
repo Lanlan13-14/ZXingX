@@ -34,7 +34,6 @@ object CameraFacingPlan {
      * Lens facing to use for [attempt], given the user's [preferred] facing.
      * Attempts 0-1 try the preferred facing, attempts 2-3 fall back to the opposite one.
      */
-    @CameraSelector.LensFacing
     fun lensFacingForAttempt(@CameraSelector.LensFacing preferred: Int, attempt: Int): Int {
         require(attempt in 0 until MAX_ATTEMPTS) { "attempt out of range: $attempt" }
         return if (attempt < 2) preferred else opposite(preferred)
