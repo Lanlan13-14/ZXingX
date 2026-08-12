@@ -51,8 +51,29 @@ struct ScannerView: View {
                     previewSize: proxy.size,
                     resultPoint: controller.resultPoint,
                     torchOn: controller.isTorchOn,
+                    torchAvailable: controller.isTorchAvailable,
                     onToggleTorch: { controller.setTorch(!controller.isTorchOn) }
                 )
+
+                // Front/back switch, bottom center (Android: ivSwitchCamera at
+                // the bottom of zxl_camera_scan.xml). Only when the device has
+                // both cameras.
+                if controller.canSwitchCamera {
+                    VStack {
+                        Spacer()
+                        Button {
+                            controller.switchCamera()
+                        } label: {
+                            SwitchCameraIcon()
+                                .frame(width: 26, height: 26)
+                                .frame(width: 52, height: 52)
+                                .background(.black.opacity(0.35), in: Circle())
+                                .contentShape(Circle())
+                        }
+                        .accessibilityLabel("切换前置/后置摄像头")
+                        .padding(.bottom, proxy.safeAreaInsets.bottom + 40)
+                    }
+                }
 
                 topBar(topInset: proxy.safeAreaInsets.top)
 

@@ -19,6 +19,9 @@ struct ViewfinderOverlay: View {
     let previewSize: CGSize
     let resultPoint: CGPoint?
     let torchOn: Bool
+    /// Front cameras have no torch: the button hides (Android keeps the icon
+    /// but it can never light; hiding matches iOS camera-UI convention).
+    let torchAvailable: Bool
     let onToggleTorch: () -> Void
 
     /// Visible frame of the classic viewfinder: ViewfinderView's framing rect
@@ -58,7 +61,9 @@ struct ViewfinderOverlay: View {
                     .position(point)
             }
 
-            torchButton(below: frame)
+            if torchAvailable {
+                torchButton(below: frame)
+            }
         }
         .onAppear { startLaser() }
     }

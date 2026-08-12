@@ -43,6 +43,13 @@ final class CameraController: NSObject, ObservableObject {
     @Published private(set) var zoomFactor: CGFloat = 1
     @Published private(set) var zoomRange: ClosedRange<CGFloat> = 1...1
 
+    /// Front/back switching (Android: ivSwitchCamera). Default is back, the
+    /// button is only shown when the device reports both cameras, and the
+    /// torch button hides while the front camera is active.
+    @Published private(set) var isFrontCamera = false
+    @Published private(set) var canSwitchCamera = false
+    @Published private(set) var isTorchAvailable = false
+
     /// Result marker shown by the full-screen scanner (displayResultPoint on
     /// Android). Preview-layer coordinates.
     @Published var resultPoint: CGPoint?
@@ -53,6 +60,8 @@ final class CameraController: NSObject, ObservableObject {
     private let sessionQueue = DispatchQueue(label: "com.lanlan13.zxingx.capture")
     private let metadataOutput = AVCaptureMetadataOutput()
     private var device: AVCaptureDevice?
+    /// Position of the currently bound device; read/written on `sessionQueue`.
+    private var activePosition: AVCaptureDevice.Position = .back
     private weak var previewLayer: AVCaptureVideoPreviewLayer?
 
     /// Android CameraScan.setAnalyzeImage(false): detection callbacks are
@@ -106,85 +115,164 @@ final class CameraController: NSObject, ObservableObject {
     // MARK: - Configuration (sessionQueue)
 
     private func configureAndRun() {
-        let mode = self.mode
         sessionQueue.async { [weak self] in
             guard let self else { return }
-            let session = self.session
-            if session.isRunning {
+            if self.session.isRunning {
                 Task { @MainActor in self.state = .running }
                 return
             }
+            self.configureSession(preferredPosition: self.activePosition)
+        }
+    }
 
-            session.beginConfiguration()
-            session.sessionPreset = .high
+    /// Device-type preference order per position — the published logical
+    /// multi-camera first (Triple → DualWide → Dual → Wide on the back),
+    /// exactly the Android LogicalMultiCameraConfig selection rule.
+    nonisolated static func deviceTypes(
+        for position: AVCaptureDevice.Position
+    ) -> [AVCaptureDevice.DeviceType] {
+        switch position {
+        case .back:
+            return [
+                .builtInTripleCamera,
+                .builtInDualWideCamera,
+                .builtInDualCamera,
+                .builtInWideAngleCamera
+            ]
+        case .front:
+            return [
+                .builtInTrueDepthCamera,
+                .builtInWideAngleCamera
+            ]
+        default:
+            return [.builtInWideAngleCamera]
+        }
+    }
 
-            // Prefer the device's published logical multi-camera (Triple →
-            // DualWide → Dual → Wide), exactly the Android selection rule.
-            let discovery = AVCaptureDevice.DiscoverySession(
-                deviceTypes: [
-                    .builtInTripleCamera,
-                    .builtInDualWideCamera,
-                    .builtInDualCamera,
-                    .builtInWideAngleCamera
-                ],
-                mediaType: .video,
-                position: .back
-            )
-            guard let device = discovery.devices.first else {
-                session.commitConfiguration()
-                Task { @MainActor in self.state = .failed("no_camera") }
-                return
-            }
+    nonisolated static func opposite(
+        of position: AVCaptureDevice.Position
+    ) -> AVCaptureDevice.Position {
+        position == .front ? .back : .front
+    }
 
-            do {
-                let input = try AVCaptureDeviceInput(device: device)
-                guard session.canAddInput(input) else {
-                    session.commitConfiguration()
-                    Task { @MainActor in self.state = .failed("input") }
-                    return
-                }
-                session.addInput(input)
-            } catch {
+    /// First device for `position`, falling back to the opposite position
+    /// (Android CameraFacingPlan: a device whose preferred-facing camera is
+    /// missing must still open SOMETHING instead of a black screen).
+    private func discoverDevice(
+        preferred position: AVCaptureDevice.Position
+    ) -> (AVCaptureDevice, AVCaptureDevice.Position)? {
+        let primary = AVCaptureDevice.DiscoverySession(
+            deviceTypes: Self.deviceTypes(for: position),
+            mediaType: .video,
+            position: position
+        )
+        if let found = primary.devices.first { return (found, position) }
+        let other = Self.opposite(of: position)
+        let fallback = AVCaptureDevice.DiscoverySession(
+            deviceTypes: Self.deviceTypes(for: other),
+            mediaType: .video,
+            position: other
+        )
+        if let found = fallback.devices.first { return (found, other) }
+        return nil
+    }
+
+    private func hasAnyCamera(at position: AVCaptureDevice.Position) -> Bool {
+        !AVCaptureDevice.DiscoverySession(
+            deviceTypes: Self.deviceTypes(for: position),
+            mediaType: .video,
+            position: position
+        ).devices.isEmpty
+    }
+
+    /// (Re)binds the session to the preferred position. Idempotent: existing
+    /// inputs are removed first, so this is safe both for the first start,
+    /// for restarts after stop(), and for live front/back switching while the
+    /// session keeps running. Runs on `sessionQueue`.
+    private func configureSession(preferredPosition: AVCaptureDevice.Position) {
+        let session = self.session
+        session.beginConfiguration()
+        session.sessionPreset = .high
+        for input in session.inputs {
+            session.removeInput(input)
+        }
+
+        guard let (device, usedPosition) = discoverDevice(preferred: preferredPosition) else {
+            session.commitConfiguration()
+            Task { @MainActor in self.state = .failed("no_camera") }
+            return
+        }
+
+        do {
+            let input = try AVCaptureDeviceInput(device: device)
+            guard session.canAddInput(input) else {
                 session.commitConfiguration()
                 Task { @MainActor in self.state = .failed("input") }
                 return
             }
+            session.addInput(input)
+        } catch {
+            session.commitConfiguration()
+            Task { @MainActor in self.state = .failed("input") }
+            return
+        }
 
+        if !session.outputs.contains(self.metadataOutput) {
             guard session.canAddOutput(self.metadataOutput) else {
                 session.commitConfiguration()
                 Task { @MainActor in self.state = .failed("output") }
                 return
             }
             session.addOutput(self.metadataOutput)
-            // metadataObjectTypes must be set AFTER the output is added, and
-            // limited to what the device reports as available.
-            let wanted = mode.metadataObjectTypes
-            self.metadataOutput.metadataObjectTypes =
-                wanted.filter { self.metadataOutput.availableMetadataObjectTypes.contains($0) }
-            self.metadataOutput.setMetadataObjectsDelegate(self, queue: .main)
+        }
+        // metadataObjectTypes must be set AFTER the output is added, and
+        // limited to what the current input reports as available.
+        let wanted = mode.metadataObjectTypes
+        self.metadataOutput.metadataObjectTypes =
+            wanted.filter { self.metadataOutput.availableMetadataObjectTypes.contains($0) }
+        self.metadataOutput.setMetadataObjectsDelegate(self, queue: .main)
 
-            do {
-                try device.lockForConfiguration()
-                if device.isFocusModeSupported(.continuousAutoFocus) {
-                    device.focusMode = .continuousAutoFocus
-                }
-                device.unlockForConfiguration()
-            } catch {
-                // Focus tuning is best-effort; scanning still works.
+        do {
+            try device.lockForConfiguration()
+            if device.isFocusModeSupported(.continuousAutoFocus) {
+                device.focusMode = .continuousAutoFocus
             }
+            device.unlockForConfiguration()
+        } catch {
+            // Focus tuning is best-effort; scanning still works.
+        }
 
-            // Commit BEFORE startRunning: configuration only takes effect on commit.
-            session.commitConfiguration()
-            self.device = device
+        // Commit BEFORE startRunning: configuration only takes effect on commit.
+        session.commitConfiguration()
+        self.device = device
+        self.activePosition = usedPosition
+        let switchable = hasAnyCamera(at: .back) && hasAnyCamera(at: .front)
+        if !session.isRunning {
             session.startRunning()
+        }
 
-            Task { @MainActor in
-                self.zoomRange = device.minAvailableVideoZoomFactor...device.maxAvailableVideoZoomFactor
-                self.zoomFactor = device.videoZoomFactor
-                self.isTorchOn = device.isTorchActive
-                self.state = .running
-                self.applyAnalysisRectIfNeeded()
-            }
+        Task { @MainActor in
+            self.isFrontCamera = usedPosition == .front
+            self.canSwitchCamera = switchable
+            self.isTorchAvailable = device.hasTorch
+            self.isTorchOn = false
+            self.zoomRange = device.minAvailableVideoZoomFactor...device.maxAvailableVideoZoomFactor
+            self.zoomFactor = device.videoZoomFactor
+            self.resultPoint = nil
+            self.state = .running
+            self.applyAnalysisRectIfNeeded()
+        }
+    }
+
+    // MARK: - Front/back switch (ivSwitchCamera on Android)
+
+    /// Toggles between the front and back camera. No-op unless the device
+    /// actually has both (same rule that shows the Android switch button).
+    func switchCamera() {
+        guard canSwitchCamera, state == .running else { return }
+        let target: AVCaptureDevice.Position = isFrontCamera ? .back : .front
+        sessionQueue.async { [weak self] in
+            self?.configureSession(preferredPosition: target)
         }
     }
 
