@@ -20,65 +20,76 @@ class CameraFacingPlanTest {
     }
 
     @Test
-    fun `attempts zero and one keep the preferred facing`() {
-        for (attempt in 0..1) {
-            assertEquals(
-                CameraSelector.LENS_FACING_BACK,
-                CameraFacingPlan.lensFacingForAttempt(CameraSelector.LENS_FACING_BACK, attempt)
-            )
-            assertEquals(
-                CameraSelector.LENS_FACING_FRONT,
-                CameraFacingPlan.lensFacingForAttempt(CameraSelector.LENS_FACING_FRONT, attempt)
-            )
-        }
-    }
-
-    @Test
-    fun `attempts two and three fall back to the opposite facing`() {
-        for (attempt in 2..3) {
-            assertEquals(
-                CameraSelector.LENS_FACING_FRONT,
-                CameraFacingPlan.lensFacingForAttempt(CameraSelector.LENS_FACING_BACK, attempt)
-            )
-            assertEquals(
-                CameraSelector.LENS_FACING_BACK,
-                CameraFacingPlan.lensFacingForAttempt(CameraSelector.LENS_FACING_FRONT, attempt)
-            )
-        }
-    }
-
-    @Test
-    fun `full and minimal configs alternate across attempts`() {
-        assertTrue(CameraFacingPlan.useFullConfigForAttempt(0))
-        assertFalse(CameraFacingPlan.useFullConfigForAttempt(1))
-        assertTrue(CameraFacingPlan.useFullConfigForAttempt(2))
-        assertFalse(CameraFacingPlan.useFullConfigForAttempt(3))
-    }
-
-    @Test
-    fun `attempts cover the whole chain exactly once`() {
-        val chain = (0 until CameraFacingPlan.MAX_ATTEMPTS).map { attempt ->
-            CameraFacingPlan.lensFacingForAttempt(CameraSelector.LENS_FACING_BACK, attempt) to
-                CameraFacingPlan.useFullConfigForAttempt(attempt)
+    fun `back preferred chain tries full then minimal then opposite minimal`() {
+        val chain = (0 until CameraFacingPlan.attemptCount(CameraSelector.LENS_FACING_BACK)).map { attempt ->
+            CameraFacingPlan.step(CameraSelector.LENS_FACING_BACK, attempt)
         }
         assertEquals(
             listOf(
-                CameraSelector.LENS_FACING_BACK to true,
-                CameraSelector.LENS_FACING_BACK to false,
-                CameraSelector.LENS_FACING_FRONT to true,
-                CameraSelector.LENS_FACING_FRONT to false
+                CameraFacingPlan.Step(CameraSelector.LENS_FACING_BACK, true),
+                CameraFacingPlan.Step(CameraSelector.LENS_FACING_BACK, false),
+                CameraFacingPlan.Step(CameraSelector.LENS_FACING_FRONT, false)
             ),
             chain
         )
     }
 
+    @Test
+    fun `front preferred chain skips adaptive config on the front camera`() {
+        val chain = (0 until CameraFacingPlan.attemptCount(CameraSelector.LENS_FACING_FRONT)).map { attempt ->
+            CameraFacingPlan.step(CameraSelector.LENS_FACING_FRONT, attempt)
+        }
+        assertEquals(
+            listOf(
+                CameraFacingPlan.Step(CameraSelector.LENS_FACING_FRONT, false),
+                CameraFacingPlan.Step(CameraSelector.LENS_FACING_BACK, true),
+                CameraFacingPlan.Step(CameraSelector.LENS_FACING_BACK, false)
+            ),
+            chain
+        )
+    }
+
+    @Test
+    fun `front never uses full config on the front camera itself`() {
+        val steps = (0 until CameraFacingPlan.attemptCount(CameraSelector.LENS_FACING_FRONT))
+            .map { CameraFacingPlan.step(CameraSelector.LENS_FACING_FRONT, it) }
+        assertTrue(steps.none { it.lensFacing == CameraSelector.LENS_FACING_FRONT && it.useFullConfig })
+    }
+
+    @Test
+    fun `legacy helpers match step for both facings`() {
+        for (preferred in intArrayOf(CameraSelector.LENS_FACING_BACK, CameraSelector.LENS_FACING_FRONT)) {
+            for (attempt in 0 until CameraFacingPlan.attemptCount(preferred)) {
+                val step = CameraFacingPlan.step(preferred, attempt)
+                assertEquals(step.lensFacing, CameraFacingPlan.lensFacingForAttempt(preferred, attempt))
+                assertEquals(step.useFullConfig, CameraFacingPlan.useFullConfigForAttempt(preferred, attempt))
+            }
+        }
+    }
+
+    @Test
+    fun `attempt count is three for both facings`() {
+        assertEquals(3, CameraFacingPlan.attemptCount(CameraSelector.LENS_FACING_BACK))
+        assertEquals(3, CameraFacingPlan.attemptCount(CameraSelector.LENS_FACING_FRONT))
+        assertEquals(3, CameraFacingPlan.MAX_ATTEMPTS)
+    }
+
+    @Test
+    fun `first back attempt still uses the full config`() {
+        assertTrue(CameraFacingPlan.useFullConfigForAttempt(CameraSelector.LENS_FACING_BACK, 0))
+        assertFalse(CameraFacingPlan.useFullConfigForAttempt(CameraSelector.LENS_FACING_FRONT, 0))
+    }
+
     @Test(expected = IllegalArgumentException::class)
     fun `negative attempt is rejected`() {
-        CameraFacingPlan.lensFacingForAttempt(CameraSelector.LENS_FACING_BACK, -1)
+        CameraFacingPlan.step(CameraSelector.LENS_FACING_BACK, -1)
     }
 
     @Test(expected = IllegalArgumentException::class)
     fun `attempt beyond the chain is rejected`() {
-        CameraFacingPlan.useFullConfigForAttempt(CameraFacingPlan.MAX_ATTEMPTS)
+        CameraFacingPlan.step(
+            CameraSelector.LENS_FACING_BACK,
+            CameraFacingPlan.attemptCount(CameraSelector.LENS_FACING_BACK)
+        )
     }
 }

@@ -25,21 +25,33 @@ final class CameraSelectionTests: XCTestCase {
         )
     }
 
-    func testFrontPrefersTrueDepthThenWideAngle() {
+    func testFrontPrefersWideAngleThenTrueDepth() {
+        // Wide first: TrueDepth brings up the depth ISP and is the slow
+        // path the user sees as "flip finished, picture still black."
+        // QR scanning does not need depth.
         XCTAssertEqual(
             CameraController.deviceTypes(for: .front),
             [
-                .builtInTrueDepthCamera,
-                .builtInWideAngleCamera
+                .builtInWideAngleCamera,
+                .builtInTrueDepthCamera
             ]
         )
     }
 
-    func testWideAngleIsAlwaysTheLastResort() {
-        // The fallback chain must always end at the universally present
-        // wide-angle camera, for both positions.
+    func testFrontSessionPresetIs720pNotHigh() {
+        XCTAssertEqual(CameraController.sessionPreset(for: .front), .hd1280x720)
+        XCTAssertEqual(CameraController.sessionPreset(for: .back), .high)
+    }
+
+    func testBackFallbackEndsAtWideAngle() {
         XCTAssertEqual(CameraController.deviceTypes(for: .back).last, .builtInWideAngleCamera)
-        XCTAssertEqual(CameraController.deviceTypes(for: .front).last, .builtInWideAngleCamera)
+    }
+
+    func testFrontFallbackEndsAtTrueDepth() {
+        // Wide is preferred; TrueDepth is last-resort only (depth ISP is slow
+        // and unused for QR). A TrueDepth-only front camera still opens.
+        XCTAssertEqual(CameraController.deviceTypes(for: .front).last, .builtInTrueDepthCamera)
+        XCTAssertEqual(CameraController.deviceTypes(for: .front).first, .builtInWideAngleCamera)
     }
 
     func testOppositeMapsBackToFrontAndFrontToBack() {
@@ -86,5 +98,44 @@ final class CameraSelectionTests: XCTestCase {
     func testUnknownTorchFallsBackToPositionHeuristic() {
         XCTAssertTrue(CameraController.usesScreenFlash(hasTorch: nil, isFront: true))
         XCTAssertFalse(CameraController.usesScreenFlash(hasTorch: nil, isFront: false))
+    }
+
+    // MARK: - Flip reveal (ports CameraSwitchTimingTest.kt)
+
+    func testDoesNotRevealBeforeFirstHalfEvenIfPreviewReady() {
+        XCTAssertFalse(CameraController.shouldReveal(firstHalfDone: false, previewReady: true, elapsedMs: 2000))
+        XCTAssertFalse(CameraController.shouldReveal(
+            firstHalfDone: false,
+            previewReady: true,
+            elapsedMs: CameraController.revealTimeoutMs
+        ))
+    }
+
+    func testRevealsWhenFirstHalfDoneAndPreviewReady() {
+        XCTAssertTrue(CameraController.shouldReveal(
+            firstHalfDone: true,
+            previewReady: true,
+            elapsedMs: CameraController.flipHalfDurationMs
+        ))
+    }
+
+    func testRevealsOnTimeoutAfterFirstHalfWithoutAFrame() {
+        XCTAssertTrue(CameraController.shouldReveal(
+            firstHalfDone: true,
+            previewReady: false,
+            elapsedMs: CameraController.revealTimeoutMs
+        ))
+    }
+
+    func testDoesNotRevealJustBeforeTimeoutWithoutAFrame() {
+        XCTAssertFalse(CameraController.shouldReveal(
+            firstHalfDone: true,
+            previewReady: false,
+            elapsedMs: CameraController.revealTimeoutMs - 1
+        ))
+    }
+
+    func testTimeoutIsLongerThanOneFlipHalf() {
+        XCTAssertGreaterThan(CameraController.revealTimeoutMs, CameraController.flipHalfDurationMs)
     }
 }

@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.view.View
 import android.view.animation.AccelerateInterpolator
 import android.view.animation.DecelerateInterpolator
@@ -13,7 +14,9 @@ import android.widget.Toast
 import androidx.annotation.IdRes
 import androidx.camera.core.CameraSelector
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Observer
 import com.google.zxing.Result
 import com.king.camera.scan.BaseCameraScanActivity
 import com.king.camera.scan.CameraScan
@@ -21,6 +24,7 @@ import com.king.camera.scan.analyze.Analyzer
 import com.king.view.viewfinderview.ViewfinderView
 import com.king.zxing.analyze.MultiFormatAnalyzer
 import com.king.zxing.config.CameraFacingPlan
+import com.king.zxing.config.CameraSwitchTiming
 import com.king.zxing.config.FillLightPlan
 import com.king.zxing.config.LogicalMultiCameraConfig
 import com.king.zxing.config.MinimalCameraConfig
@@ -30,31 +34,35 @@ import com.king.zxing.gesture.EdgeSwipeBackController
  * 基于 ZXing 实现的扫码识别 - 相机扫描基类。
  *
  * Uses the standard CameraX logical camera and CameraScan's native pinch zoom.
- * CameraControl.setZoomRatio() is delegated to the device camera HAL; this library does
- * not enumerate, guess, or explicitly bind physical camera IDs.
+ * CameraControl.setZoomRatio() is delegated to the device camera HAL; this library
+ * does not enumerate, guess, or explicitly bind physical camera IDs.
  *
  * Features layered on top of CameraScan:
  *
- * 1. Front/back switching: layouts may contain an `ivSwitchCamera` view (bottom center);
- *    tapping it plays a rotateY card-flip on the preview and rebinds the opposite lens
- *    facing at the edge-on midpoint. The button is only shown when the device reports
- *    both cameras. Default facing is back; devices without a back camera (some
- *    pads/kiosks) start on the front camera automatically.
+ * 1. Front/back switching: layouts may contain an `ivSwitchCamera` view (bottom
+ *    center). Tapping it plays a rotateY card-flip on the preview and rebinds
+ *    the opposite lens. The second half of the flip is held edge-on until the
+ *    new preview produces a frame (or [CameraSwitchTiming.REVEAL_TIMEOUT_MS]
+ *    elapses) so the animation never finishes on a black surface. The button
+ *    is only shown when the device reports both cameras. Default facing is
+ *    back; devices without a back camera (some pads/kiosks) start on the
+ *    front camera automatically.
  *
- * 2. Bind-failure fallback: camera-scan's startCamera() swallows bind exceptions, so a
- *    failed bind (observed on some tablets/pads) otherwise leaves a silent black screen.
- *    A watchdog checks whether a camera got bound; if not, it escalates through
- *    [CameraFacingPlan] (preferred-full → preferred-minimal → opposite-full →
- *    opposite-minimal) and finally surfaces a Toast instead of failing silently.
+ * 2. Bind-failure fallback: camera-scan's startCamera() swallows bind
+ *    exceptions, so a failed bind (observed on some tablets/pads) otherwise
+ *    leaves a silent black screen. A watchdog checks whether a camera got
+ *    bound; if not, it escalates through [CameraFacingPlan]. Front-as-preferred
+ *    starts on the minimal config — AdaptiveCameraConfig's 720p–1080p filter
+ *    is what makes the front camera look "already flipped, still black."
  *
- * 3. Screen flash ([FillLightPlan]): on cameras without a flash unit (front) the
- *    flashlight button lights two white bars (top/bottom) at full window brightness
- *    instead of the torch. The flashlight icon is self-managed (always visible)
- *    because camera-scan's ambient-light auto-hide would hide it exactly when the
- *    screen flash lights the room up.
+ * 3. Screen flash ([FillLightPlan]): on cameras without a flash unit (front)
+ *    the flashlight button lights two white bars (top/bottom) at full window
+ *    brightness instead of the torch. The flashlight icon is self-managed
+ *    (always visible) because camera-scan's ambient-light auto-hide would
+ *    hide it exactly when the screen flash lights the room up.
  *
- * 4. Tablets (sw600dp) are unlocked to FULL_SENSOR orientation; phones keep the
- *    manifest's portrait lock.
+ * 4. Tablets (sw600dp) are unlocked to FULL_SENSOR orientation; phones keep
+ *    the manifest's portrait lock.
  */
 abstract class BarcodeCameraScanActivity : BaseCameraScanActivity<Result>() {
 
@@ -87,6 +95,38 @@ abstract class BarcodeCameraScanActivity : BaseCameraScanActivity<Result>() {
     private val mainHandler = Handler(Looper.getMainLooper())
 
     private val bindWatchdog = Runnable { onBindWatchdog() }
+
+    /** True while a card-flip is in progress; extra taps are ignored. */
+    private var isFlipping = false
+
+    /** 0→90° half of the flip has finished; we are waiting to reveal. */
+    private var flipFirstHalfDone = false
+
+    /** Wall-clock of the current flip, used by [CameraSwitchTiming.shouldReveal]. */
+    private var flipStartedAtElapsed = 0L
+
+    /** Generation so a late stream observer from a previous flip cannot reveal this one. */
+    private var flipGeneration = 0
+
+    /**
+     * The previous camera's STREAMING state can linger until unbindAll
+     * takes effect. We only treat STREAMING as "new preview ready" after
+     * we have seen a non-STREAMING gap (or we started the flip already
+     * idle). Without this, a fast bind would flip open onto the old frame.
+     */
+    private var flipSawStreamGap = false
+
+    private var previewStreamObserver: Observer<PreviewView.StreamState>? = null
+
+    private val flipPoll = object : Runnable {
+        override fun run() {
+            if (!isFlipping) return
+            maybeRevealFlip()
+            if (isFlipping) {
+                mainHandler.postDelayed(this, CameraSwitchTiming.POLL_MS)
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -151,6 +191,8 @@ abstract class BarcodeCameraScanActivity : BaseCameraScanActivity<Result>() {
 
     override fun onDestroy() {
         mainHandler.removeCallbacks(bindWatchdog)
+        mainHandler.removeCallbacks(flipPoll)
+        detachPreviewStreamObserver()
         if (isScreenFlashOn) {
             setScreenFlash(false) // 恢复窗口亮度，避免带出到其它页面
         }
@@ -210,53 +252,132 @@ abstract class BarcodeCameraScanActivity : BaseCameraScanActivity<Result>() {
     }
 
     /**
-     * 切换前置/后置摄像头；预览做绕 Y 轴的卡片翻转动画（0→90° 期间完成换绑，
-     * -90°→0° 展示新画面），切换后从降级链的起点重新绑定。
+     * 切换前置/后置摄像头。
+     *
+     * 绑定立刻开始（不再等 0→90° 播完），预览边翻边换。第二半程（−90°→0°）
+     * 等到新预览出第一帧再揭开，避免翻完对着黑屏空等。
      */
     protected fun switchCameraFacing() {
+        if (isFlipping) return
         // 换镜头后原补光/闪光灯状态不再有效。
         setScreenFlash(false)
         ivFlashlight?.isSelected = false
 
-        val preview = previewView
-        if (preview == null || preview.width == 0) {
-            performCameraSwitch()
-            return
-        }
-        preview.animate().cancel()
-        // 透视强度对齐参考（perspective:1200px / 320px 卡片宽 ≈ 3.75）。
-        preview.cameraDistance = preview.width * FLIP_PERSPECTIVE_RATIO
-        preview.animate()
-            .rotationY(90f)
-            .setDuration(FLIP_HALF_DURATION_MS)
-            .setInterpolator(AccelerateInterpolator(FLIP_INTERPOLATOR_FACTOR))
-            .withEndAction {
-                performCameraSwitch()
-                preview.rotationY = -90f
-                preview.animate()
-                    .rotationY(0f)
-                    .setDuration(FLIP_HALF_DURATION_MS)
-                    .setInterpolator(DecelerateInterpolator(FLIP_INTERPOLATOR_FACTOR))
-                    .start()
-            }
-            .start()
-    }
-
-    private fun performCameraSwitch() {
         preferredLensFacing = CameraFacingPlan.opposite(currentLensFacing)
         cameraStartAttempt = 0
         applyCameraConfigForAttempt()
+
+        val preview = previewView
+        if (preview == null || preview.width == 0) {
+            cameraScan?.startCamera()
+            scheduleBindWatchdog()
+            return
+        }
+
+        beginFlip(preview)
+        // Bind in parallel with the first half of the flip — the previous
+        // sequence (animate 300ms, THEN startCamera) wasted a full half of
+        // the animation waiting to even ask CameraX for the other lens.
         cameraScan?.startCamera()
         scheduleBindWatchdog()
     }
 
+    private fun beginFlip(preview: PreviewView) {
+        isFlipping = true
+        flipFirstHalfDone = false
+        flipStartedAtElapsed = SystemClock.elapsedRealtime()
+        flipSawStreamGap = preview.previewStreamState.value != PreviewView.StreamState.STREAMING
+        val generation = ++flipGeneration
+        ivSwitchCamera?.isEnabled = false
+
+        preview.animate().cancel()
+        // 透视强度对齐参考（perspective:1200px / 320px 卡片宽 ≈ 3.75）。
+        preview.cameraDistance = preview.width * CameraSwitchTiming.FLIP_PERSPECTIVE_RATIO
+        preview.animate()
+            .rotationY(90f)
+            .setDuration(CameraSwitchTiming.FLIP_HALF_DURATION_MS)
+            .setInterpolator(AccelerateInterpolator(CameraSwitchTiming.FLIP_INTERPOLATOR_FACTOR))
+            .withEndAction {
+                if (generation != flipGeneration || isFinishing || isDestroyed) return@withEndAction
+                preview.rotationY = -90f
+                flipFirstHalfDone = true
+                maybeRevealFlip()
+            }
+            .start()
+
+        attachPreviewStreamObserver(preview, generation)
+        mainHandler.removeCallbacks(flipPoll)
+        mainHandler.postDelayed(flipPoll, CameraSwitchTiming.POLL_MS)
+    }
+
+    private fun attachPreviewStreamObserver(preview: PreviewView, generation: Int) {
+        detachPreviewStreamObserver()
+        val liveData = preview.previewStreamState
+        val observer = Observer<PreviewView.StreamState> { state ->
+            if (generation != flipGeneration) return@Observer
+            if (state != PreviewView.StreamState.STREAMING) {
+                flipSawStreamGap = true
+            } else if (flipSawStreamGap) {
+                maybeRevealFlip()
+            }
+        }
+        previewStreamObserver = observer
+        liveData.observe(this, observer)
+    }
+
+    private fun detachPreviewStreamObserver() {
+        val observer = previewStreamObserver ?: return
+        previewView?.previewStreamState?.removeObserver(observer)
+        previewStreamObserver = null
+    }
+
+    /**
+     * The new preview is ready once CameraX reports a bound camera AND the
+     * PreviewView is streaming a *new* stream. STREAMING leftover from the
+     * previous camera is ignored until we have seen a non-STREAMING gap
+     * (unbindAll typically produces IDLE).
+     */
+    private fun isNewPreviewReady(): Boolean {
+        return CameraSwitchTiming.isNewPreviewReady(
+            cameraBound = cameraScan?.camera != null,
+            sawStreamGap = flipSawStreamGap,
+            streaming = previewView?.previewStreamState?.value == PreviewView.StreamState.STREAMING
+        )
+    }
+
+    private fun maybeRevealFlip() {
+        if (!isFlipping) return
+        val elapsed = SystemClock.elapsedRealtime() - flipStartedAtElapsed
+        if (!CameraSwitchTiming.shouldReveal(flipFirstHalfDone, isNewPreviewReady(), elapsed)) {
+            return
+        }
+        revealFlip()
+    }
+
+    private fun revealFlip() {
+        if (!isFlipping) return
+        isFlipping = false
+        mainHandler.removeCallbacks(flipPoll)
+        detachPreviewStreamObserver()
+        ivSwitchCamera?.isEnabled = true
+
+        val preview = previewView ?: return
+        preview.animate().cancel()
+        if (preview.rotationY == 0f) return
+        preview.animate()
+            .rotationY(0f)
+            .setDuration(CameraSwitchTiming.FLIP_HALF_DURATION_MS)
+            .setInterpolator(DecelerateInterpolator(CameraSwitchTiming.FLIP_INTERPOLATOR_FACTOR))
+            .start()
+    }
+
     private fun applyCameraConfigForAttempt() {
-        val facing = CameraFacingPlan.lensFacingForAttempt(preferredLensFacing, cameraStartAttempt)
-        currentLensFacing = facing
-        val config = if (CameraFacingPlan.useFullConfigForAttempt(cameraStartAttempt)) {
-            LogicalMultiCameraConfig(this, facing, true)
+        val step = CameraFacingPlan.step(preferredLensFacing, cameraStartAttempt)
+        currentLensFacing = step.lensFacing
+        val config = if (step.useFullConfig) {
+            LogicalMultiCameraConfig(this, step.lensFacing, true)
         } else {
-            MinimalCameraConfig(facing)
+            MinimalCameraConfig(step.lensFacing)
         }
         cameraScan?.setCameraConfig(config)
     }
@@ -275,7 +396,8 @@ abstract class BarcodeCameraScanActivity : BaseCameraScanActivity<Result>() {
             return
         }
         if (cameraScan?.camera != null) return // 绑定成功
-        if (cameraStartAttempt + 1 >= CameraFacingPlan.MAX_ATTEMPTS) {
+        val maxAttempts = CameraFacingPlan.attemptCount(preferredLensFacing)
+        if (cameraStartAttempt + 1 >= maxAttempts) {
             Toast.makeText(this, R.string.zxl_camera_open_failed, Toast.LENGTH_LONG).show()
             return
         }
@@ -322,14 +444,6 @@ abstract class BarcodeCameraScanActivity : BaseCameraScanActivity<Result>() {
     private companion object {
         /** 相机绑定看门狗超时；绑定通常 1 秒内完成，3 秒容忍慢设备。 */
         const val BIND_WATCHDOG_MS = 3000L
-
-        /** 翻转动画半程时长；参考实现全程 0.8s，相机切换收紧到 0.6s 保持跟手。 */
-        const val FLIP_HALF_DURATION_MS = 300L
-
-        /** 参考卡片的透视比：perspective 1200px / 卡片宽 320px。 */
-        const val FLIP_PERSPECTIVE_RATIO = 3.75f
-
-        const val FLIP_INTERPOLATOR_FACTOR = 0.6f
 
         const val SCREEN_FLASH_TOP_RATIO = 0.20f
         const val SCREEN_FLASH_BOTTOM_RATIO = 0.25f

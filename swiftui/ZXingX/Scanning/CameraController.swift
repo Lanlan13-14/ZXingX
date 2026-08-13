@@ -69,6 +69,17 @@ final class CameraController: NSObject, ObservableObject {
     private var activePosition: AVCaptureDevice.Position = .back
     private weak var previewLayer: AVCaptureVideoPreviewLayer?
 
+    /// Bumps on every configureSession completion (success or fail). The
+    /// scanner flip waits for this instead of a fixed delay so the second
+    /// half of the card-flip never opens onto a black preview.
+    @Published private(set) var sessionEpoch = 0
+
+    /// Cached DiscoverySession results; camera presence does not change
+    /// during a scan session, and rediscovering on every flip was extra
+    /// session-queue work sitting on the critical path of a front switch.
+    private var cachedHasBack: Bool?
+    private var cachedHasFront: Bool?
+
     /// Android CameraScan.setAnalyzeImage(false): detection callbacks are
     /// dropped while a result page or a payment app is covering the scanner.
     private var analysisSuspended = false
@@ -131,9 +142,15 @@ final class CameraController: NSObject, ObservableObject {
         }
     }
 
-    /// Device-type preference order per position — the published logical
-    /// multi-camera first (Triple → DualWide → Dual → Wide on the back),
-    /// exactly the Android LogicalMultiCameraConfig selection rule.
+    /// Device-type preference order per position.
+    ///
+    /// Back: published logical multi-camera first (Triple → DualWide → Dual →
+    /// Wide), matching Android LogicalMultiCameraConfig.
+    ///
+    /// Front: Wide first, TrueDepth last. TrueDepth brings up the depth ISP
+    /// (the same class of cost as AdaptiveCameraConfig on Android) and is
+    /// what makes a front switch feel like the flip finished long before
+    /// the picture arrived. QR scanning does not need depth.
     nonisolated static func deviceTypes(
         for position: AVCaptureDevice.Position
     ) -> [AVCaptureDevice.DeviceType] {
@@ -147,13 +164,43 @@ final class CameraController: NSObject, ObservableObject {
             ]
         case .front:
             return [
-                .builtInTrueDepthCamera,
-                .builtInWideAngleCamera
+                .builtInWideAngleCamera,
+                .builtInTrueDepthCamera
             ]
         default:
             return [.builtInWideAngleCamera]
         }
     }
+
+    /// Session preset per facing. Front cameras on phones rarely deliver a
+    /// useful 1080p stream for a QR box; 720p is the first format they
+    /// actually settle on and skips a negotiation that shows up as a black
+    /// preview after the flip.
+    nonisolated static func sessionPreset(
+        for position: AVCaptureDevice.Position
+    ) -> AVCaptureSession.Preset {
+        position == .front ? .hd1280x720 : .high
+    }
+
+    /// Android CameraSwitchTiming.shouldReveal: the second half of the
+    /// card-flip must not start until the first half is done AND the new
+    /// session has published a frame (or the timeout fires).
+    nonisolated static func shouldReveal(
+        firstHalfDone: Bool,
+        previewReady: Bool,
+        elapsedMs: Int
+    ) -> Bool {
+        guard firstHalfDone else { return false }
+        return previewReady || elapsedMs >= Self.revealTimeoutMs
+    }
+
+    nonisolated static let flipHalfDurationMs = 300
+    nonisolated static let revealTimeoutMs = 1200
+    nonisolated static let revealPollMs = 50
+    /// Reference card perspective: 1200 / 320 = 3.75 → 1 / 3.75 ≈ 0.27,
+    /// but the existing SwiftUI effect uses 0.4 to match the Android
+    /// cameraDistance visually. Kept here so tests can lock it.
+    nonisolated static let flipPerspective: CGFloat = 0.4
 
     nonisolated static func opposite(
         of position: AVCaptureDevice.Position
@@ -198,14 +245,16 @@ final class CameraController: NSObject, ObservableObject {
     private func configureSession(preferredPosition: AVCaptureDevice.Position) {
         let session = self.session
         session.beginConfiguration()
-        session.sessionPreset = .high
         for input in session.inputs {
             session.removeInput(input)
         }
 
         guard let (device, usedPosition) = discoverDevice(preferred: preferredPosition) else {
             session.commitConfiguration()
-            Task { @MainActor in self.state = .failed("no_camera") }
+            Task { @MainActor in
+                self.state = .failed("no_camera")
+                self.sessionEpoch += 1
+            }
             return
         }
 
@@ -213,20 +262,35 @@ final class CameraController: NSObject, ObservableObject {
             let input = try AVCaptureDeviceInput(device: device)
             guard session.canAddInput(input) else {
                 session.commitConfiguration()
-                Task { @MainActor in self.state = .failed("input") }
+                Task { @MainActor in
+                    self.state = .failed("input")
+                    self.sessionEpoch += 1
+                }
                 return
             }
             session.addInput(input)
+            let preset = Self.sessionPreset(for: usedPosition)
+            if session.canSetSessionPreset(preset) {
+                session.sessionPreset = preset
+            } else if session.canSetSessionPreset(.vga640x480) {
+                session.sessionPreset = .vga640x480
+            }
         } catch {
             session.commitConfiguration()
-            Task { @MainActor in self.state = .failed("input") }
+            Task { @MainActor in
+                self.state = .failed("input")
+                self.sessionEpoch += 1
+            }
             return
         }
 
         if !session.outputs.contains(self.metadataOutput) {
             guard session.canAddOutput(self.metadataOutput) else {
                 session.commitConfiguration()
-                Task { @MainActor in self.state = .failed("output") }
+                Task { @MainActor in
+                    self.state = .failed("output")
+                    self.sessionEpoch += 1
+                }
                 return
             }
             session.addOutput(self.metadataOutput)
@@ -252,7 +316,9 @@ final class CameraController: NSObject, ObservableObject {
         session.commitConfiguration()
         self.device = device
         self.activePosition = usedPosition
-        let switchable = hasAnyCamera(at: .back) && hasAnyCamera(at: .front)
+        let hasBack = self.cachedCameraPresence(at: .back)
+        let hasFront = self.cachedCameraPresence(at: .front)
+        let switchable = hasBack && hasFront
         if !session.isRunning {
             session.startRunning()
         }
@@ -267,7 +333,25 @@ final class CameraController: NSObject, ObservableObject {
             self.zoomFactor = device.videoZoomFactor
             self.resultPoint = nil
             self.state = .running
+            self.sessionEpoch += 1
             self.applyAnalysisRectIfNeeded()
+        }
+    }
+
+    private func cachedCameraPresence(at position: AVCaptureDevice.Position) -> Bool {
+        switch position {
+        case .back:
+            if let cached = cachedHasBack { return cached }
+            let found = hasAnyCamera(at: .back)
+            cachedHasBack = found
+            return found
+        case .front:
+            if let cached = cachedHasFront { return cached }
+            let found = hasAnyCamera(at: .front)
+            cachedHasFront = found
+            return found
+        default:
+            return hasAnyCamera(at: position)
         }
     }
 

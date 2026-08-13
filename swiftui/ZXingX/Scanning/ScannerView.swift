@@ -28,9 +28,15 @@ struct ScannerView: View {
     @StateObject private var controller: CameraController
 
     /// Card-flip angle for front/back switching (Android: previewView
-    /// rotationY 0→90 → rebind → -90→0; reference: rotateY card flip).
+    /// rotationY 0→90, bind in parallel, hold edge-on until the new
+    /// session publishes a frame, then −90→0).
     @State private var flipAngle = 0.0
     @State private var isFlipping = false
+    @State private var flipFirstHalfDone = false
+    @State private var flipStartedAt: Date?
+    @State private var flipEpochAtStart = 0
+    @State private var flipPollTask: Task<Void, Never>?
+    @State private var flipGeneration = 0
 
     init(mode: ScanMode) {
         self.mode = mode
@@ -135,6 +141,9 @@ struct ScannerView: View {
             controller.start()
         }
         .onDisappear {
+            flipPollTask?.cancel()
+            flipPollTask = nil
+            isFlipping = false
             controller.stop()
         }
         .onChange(of: scenePhase) { phase in
@@ -144,26 +153,78 @@ struct ScannerView: View {
                 controller.resumeAnalysis()
             }
         }
+        .onChange(of: controller.sessionEpoch) { _ in
+            maybeRevealFlip(generation: flipGeneration)
+        }
     }
 
     // MARK: - Camera switching (card flip)
 
-    /// rotateY flip like the reference card animation: 0→90° with ease-in,
-    /// rebind at the edge-on midpoint, then -90→0° with ease-out showing the
-    /// new camera. Two halves of 0.3s (reference demo runs 0.8s; camera
-    /// switching stays a bit snappier).
+    /// rotateY flip like the reference card animation. Bind starts immediately
+    /// (in parallel with 0→90°) so the front HAL is already waking while the
+    /// card is turning. The second half (−90→0°) waits for `sessionEpoch` to
+    /// bump — i.e. configureSession finished — or for the reveal timeout.
+    /// Starting the second half on a timer is what made the animation finish
+    /// long before the front camera came up.
     private func flipCamera() {
         guard !isFlipping else { return }
         isFlipping = true
-        withAnimation(.easeIn(duration: 0.3), completionCriteria: .logicallyComplete) {
+        flipFirstHalfDone = false
+        flipStartedAt = Date()
+        flipEpochAtStart = controller.sessionEpoch
+        flipGeneration += 1
+        let generation = flipGeneration
+
+        // Bind now, not at the 90° midpoint. The previous sequence wasted
+        // a full 300ms waiting to even ask AVFoundation for the other lens.
+        controller.switchCamera()
+
+        withAnimation(.easeIn(duration: Double(CameraController.flipHalfDurationMs) / 1000.0),
+                      completionCriteria: .logicallyComplete) {
             flipAngle = 90
         } completion: {
-            controller.switchCamera()
+            guard generation == flipGeneration else { return }
             flipAngle = -90
-            withAnimation(.easeOut(duration: 0.3)) {
-                flipAngle = 0
+            flipFirstHalfDone = true
+            maybeRevealFlip(generation: generation)
+        }
+
+        flipPollTask?.cancel()
+        flipPollTask = Task { @MainActor in
+            let interval = UInt64(CameraController.revealPollMs) * 1_000_000
+            while !Task.isCancelled, generation == flipGeneration, isFlipping {
+                try? await Task.sleep(nanoseconds: interval)
+                guard !Task.isCancelled, generation == flipGeneration else { return }
+                maybeRevealFlip(generation: generation)
             }
-            isFlipping = false
+        }
+    }
+
+    private func maybeRevealFlip(generation: Int) {
+        guard generation == flipGeneration, isFlipping else { return }
+        let elapsedMs: Int
+        if let start = flipStartedAt {
+            elapsedMs = Int(Date().timeIntervalSince(start) * 1000)
+        } else {
+            elapsedMs = 0
+        }
+        let previewReady = controller.sessionEpoch != flipEpochAtStart
+        if CameraController.shouldReveal(
+            firstHalfDone: flipFirstHalfDone,
+            previewReady: previewReady,
+            elapsedMs: elapsedMs
+        ) {
+            revealFlip(generation: generation)
+        }
+    }
+
+    private func revealFlip(generation: Int) {
+        guard generation == flipGeneration, isFlipping else { return }
+        isFlipping = false
+        flipPollTask?.cancel()
+        flipPollTask = nil
+        withAnimation(.easeOut(duration: Double(CameraController.flipHalfDurationMs) / 1000.0)) {
+            flipAngle = 0
         }
     }
 
